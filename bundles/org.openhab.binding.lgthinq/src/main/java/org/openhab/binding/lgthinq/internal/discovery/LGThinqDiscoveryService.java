@@ -12,36 +12,33 @@
  */
 package org.openhab.binding.lgthinq.internal.discovery;
 
-import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
-import static org.openhab.core.thing.Thing.PROPERTY_MODEL_ID;
+import static org.openhab.binding.lgthinq.internal.LGAirConditionerHandler.THING_TYPE_AIR_CONDITIONER;
+import static org.openhab.binding.lgthinq.internal.LGThinqBindingConstants.*;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.lgthinq.internal.api.RestResult;
-import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
+import org.openhab.binding.lgthinq.internal.LGAirConditionerHandler;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
-import org.openhab.binding.lgthinq.internal.handler.LGThinQBridgeHandler;
-import org.openhab.binding.lgthinq.lgservices.LGThinQAbstractApiClientService;
-import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
-import org.openhab.binding.lgthinq.lgservices.model.*;
+import org.openhab.binding.lgthinq.internal.handler.LGBridgeHandler;
+import org.openhab.binding.lgthinq.lgapi.LGApiClientService;
+import org.openhab.binding.lgthinq.lgapi.LGApiV1ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgapi.LGApiV2ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgapi.model.LGDevice;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.config.discovery.DiscoveryResultBuilder;
 import org.openhab.core.config.discovery.DiscoveryService;
+import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingTypeUID;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * The {@link LGThinqDiscoveryService}
@@ -52,50 +49,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 public class LGThinqDiscoveryService extends AbstractDiscoveryService implements DiscoveryService, ThingHandlerService {
 
     private final Logger logger = LoggerFactory.getLogger(LGThinqDiscoveryService.class);
-    private @Nullable LGThinQBridgeHandler bridgeHandler;
+    private @Nullable LGBridgeHandler bridgeHandler;
     private @Nullable ThingUID bridgeHandlerUID;
-    private final LGThinQApiClientService<AbstractJsonCapability, AbstractSnapshotDefinition> lgApiClientService;
+    private final LGApiClientService lgApiV1ClientService, lgApiV2ClientService;
 
     public LGThinqDiscoveryService() {
-        super(SUPPORTED_THING_TYPES, SEARCH_TIME);
-        lgApiClientService = new LGThinQAbstractApiClientService<>(AbstractJsonCapability.class,
-                AbstractSnapshotDefinition.class) {
-            @Override
-            protected void beforeGetDataDevice(@NonNull String bridgeName, @NonNull String deviceId)
-                    throws LGThinqApiException {
-            }
-
-            @Override
-            public double getInstantPowerConsumption(@NonNull String bridgeName, @NonNull String deviceId)
-                    throws LGThinqApiException, IOException {
-                return 0;
-            }
-
-            @Override
-            protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
-                    String controlKey, String command, String keyName, String value) throws Exception {
-                throw new UnsupportedOperationException("Not to use");
-            }
-
-            @Override
-            protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
-                    String controlKey, String command, @Nullable String keyName, @Nullable String value,
-                    @Nullable ObjectNode extraNode) throws Exception {
-                throw new UnsupportedOperationException("Not to use");
-            }
-
-            @Override
-            protected Map<String, Object> handleGenericErrorResult(@Nullable RestResult resp)
-                    throws LGThinqApiException {
-                throw new UnsupportedOperationException("Not to use");
-            }
-
-            @Override
-            public void turnDevicePower(String bridgeName, String deviceId, DevicePowerState newPowerState)
-                    throws LGThinqApiException {
-                throw new UnsupportedOperationException("Not to use");
-            }
-        };
+        super(LGAirConditionerHandler.SUPPORTED_THING_TYPES, SEARCH_TIME);
+        lgApiV1ClientService = LGApiV1ClientServiceImpl.getInstance();
+        lgApiV2ClientService = LGApiV2ClientServiceImpl.getInstance();
     }
 
     @Override
@@ -104,8 +65,8 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
 
     @Override
     public void setThingHandler(@Nullable ThingHandler handler) {
-        if (handler instanceof LGThinQBridgeHandler) {
-            bridgeHandler = (LGThinQBridgeHandler) handler;
+        if (handler instanceof LGBridgeHandler) {
+            bridgeHandler = (LGBridgeHandler) handler;
             bridgeHandlerUID = handler.getThing().getUID();
         }
     }
@@ -136,21 +97,16 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
         }
     }
 
-    public void addLgDeviceDiscovery(LGDevice device) {
+    public void addLgDeviceDiscovery(String bridgeName, LGDevice device) {
         String modelId = device.getModelName();
         ThingUID thingUID;
         ThingTypeUID thingTypeUID;
         try {
-            // load capability to cache and troubleshooting
-            lgApiClientService.loadDeviceCapability(device.getDeviceId(), device.getModelJsonUri(), false);
             thingUID = getThingUID(device);
             thingTypeUID = getThingTypeUID(device);
         } catch (LGThinqException e) {
-            logger.debug("Discovered unsupported LG device of type '{}'({}) and model '{}' with id {}",
-                    device.getDeviceType(), device.getDeviceTypeId(), modelId, device.getDeviceId());
-            return;
-        } catch (IOException e) {
-            logger.error("Error getting device capabilities", e);
+            logger.debug("Discovered unsupported LG device of type '{}' and model '{}' with id {}",
+                    device.getDeviceType(), modelId, device.getDeviceId());
             return;
         }
 
@@ -159,7 +115,20 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
         properties.put(DEVICE_ALIAS, device.getAlias());
         properties.put(MODEL_URL_INFO, device.getModelJsonUri());
         properties.put(PLATFORM_TYPE, device.getPlatformType());
-        properties.put(PROPERTY_MODEL_ID, modelId);
+        try {
+            // registry the capabilities of the thing
+            if (PLATFORM_TYPE_V1.equals(device.getPlatformType())) {
+                lgApiV1ClientService.getDeviceCapability(bridgeName, device.getModelJsonUri(), true);
+            } else {
+                lgApiV2ClientService.getDeviceCapability(bridgeName, device.getModelJsonUri(), true);
+            }
+
+        } catch (Exception ex) {
+            logger.error(
+                    "Error trying to get device capabilities in discovery service. Fallback to the defaults values",
+                    ex);
+        }
+        properties.put(Thing.PROPERTY_MODEL_ID, modelId);
 
         DiscoveryResult discoveryResult = DiscoveryResultBuilder.create(thingUID).withThingType(thingTypeUID)
                 .withProperties(properties).withBridge(bridgeHandlerUID).withRepresentationProperty(DEVICE_ID)
@@ -180,18 +149,6 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
         switch (device.getDeviceType()) {
             case AIR_CONDITIONER:
                 return THING_TYPE_AIR_CONDITIONER;
-            case HEAT_PUMP:
-                return THING_TYPE_HEAT_PUMP;
-            case WASHERDRYER_MACHINE:
-                return THING_TYPE_WASHING_MACHINE;
-            case WASHING_TOWER:
-                return THING_TYPE_WASHING_TOWER;
-            case DRYER_TOWER:
-                return THING_TYPE_DRYER_TOWER;
-            case DRYER:
-                return THING_TYPE_DRYER;
-            case REFRIGERATOR:
-                return THING_TYPE_FRIDGE;
             default:
                 throw new LGThinqException(String.format("device type [%s] not supported", device.getDeviceType()));
         }

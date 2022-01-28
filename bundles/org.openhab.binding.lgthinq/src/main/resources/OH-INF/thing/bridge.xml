@@ -5,8 +5,8 @@
 	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
 
 	<bridge-type id="bridge">
-		<label>LG ThinQ GatewayBridge</label>
-		<description>A connection to a LGThinQ Gateway</description>
+		<label>LGThinq GatewayBridge</label>
+		<description>A connection to a LGThinq Gateway</description>
 
 		<config-description>
 			<parameter name="language" type="text" required="true">
@@ -14,16 +14,9 @@
 				<description>The User Language registered in LG Account</description>
 				<options>
 					<option value="en-US">American English</option>
-					<option value="nl-BE">Belgium Dutch</option>
 					<option value="en-GB">British English</option>
 					<option value="pt-BR">Brazilian Portuguese</option>
-					<option value="it-IT">Italian</option>
-					<option value="de-LU">Luxembourg German</option>
-					<option value="pl-PL">Polish</option>
-					<option value="pt-PT">Portugal Portuguese</option>
-					<option value="de-DE">German (Standard)</option>
-					<option value="da-DK">Danish</option>
-					<option value="--">Other</option>
+					<option value="ge">German (Standard)</option>
 				</options>
 			</parameter>
 			<parameter name="country" type="text" required="true">
@@ -32,24 +25,9 @@
 				<options>
 					<option value="US">United States</option>
 					<option value="UK">United Kingdom</option>
-					<option value="BE">Belgium</option>
-					<option value="BR">Brazil</option>
-					<option value="IT">Italy</option>
-					<option value="LU">Luxembourg</option>
-					<option value="PL">Poland</option>
-					<option value="PT">Portugal</option>
+					<option value="BR">Brazilian Portuguese</option>
 					<option value="DE">Germany</option>
-					<option value="DK">Denmark</option>
-					<option value="--">Other</option>
 				</options>
-			</parameter>
-			<parameter name="manualLanguage" type="text" required="false">
-				<label>Manual User Language (LG registry)</label>
-				<description>Fill this only if selected "Other" in the Language above</description>
-			</parameter>
-			<parameter name="manualCountry" type="text" required="false">
-				<label>Manual User Country (LG registry)</label>
-				<description>Fill this only if selected "Other" in the Country above</description>
 			</parameter>
 			<parameter name="username" type="text">
 				<label>Username</label>
@@ -61,13 +39,9 @@
 				<context>password</context>
 			</parameter>
 			<parameter name="poolingIntervalSec" type="integer">
-				<label>Pooling Discovery Interval in Seconds (>300) (0 disabled)</label>
-				<description>Pooling interval to discover new devices from LG Account.</description>
-				<default>86400</default>
-			</parameter>
-			<parameter name="alternativeServer" type="text">
-				<label>Alternative Gateway Server</label>
-				<description>Only used for proxy/test gateway server.</description>
+				<label>Pooling Discovery Interval (>300)</label>
+				<description>Pooling interval to discover new devices agains LG API.</description>
+				<context>poolingIntervalSec</context>
 			</parameter>
 		</config-description>
 	</bridge-type>

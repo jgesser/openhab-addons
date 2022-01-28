@@ -12,9 +12,13 @@
  */
 package org.openhab.binding.lgthinq.internal.api;
 
-import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
+import static org.openhab.binding.lgthinq.internal.LGThinqBindingConstants.*;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -24,9 +28,6 @@ import javax.ws.rs.core.UriBuilder;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.lgthinq.internal.api.model.GatewayResult;
-import org.openhab.binding.lgthinq.internal.errors.RefreshTokenException;
-import org.openhab.binding.lgthinq.lgservices.model.ResultCodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,7 +121,7 @@ public class OauthLgEmpAuthenticator {
 
     private Map<String, String> getGatewayRestHeader(String language, String country) {
         return Map.ofEntries(new AbstractMap.SimpleEntry<String, String>("Accept", "application/json"),
-                new AbstractMap.SimpleEntry<String, String>("x-api-key", API_KEY_V2),
+                new AbstractMap.SimpleEntry<String, String>("x-api-key", API_KEY),
                 new AbstractMap.SimpleEntry<String, String>("x-country-code", country),
                 new AbstractMap.SimpleEntry<String, String>("x-client-id", CLIENT_ID),
                 new AbstractMap.SimpleEntry<String, String>("x-language-code", language),
@@ -133,7 +134,7 @@ public class OauthLgEmpAuthenticator {
                 new AbstractMap.SimpleEntry<String, String>("x-thinq-app-ver", APP_VER));
     }
 
-    private Map<String, String> getLoginHeader(LGThinqGateway gw) {
+    private Map<String, String> getLoginHeader(Gateway gw) {
         Map<String, String> headers = new HashMap<>();
         headers.put("Connection", "keep-alive");
         headers.put("X-Device-Language-Type", "IETF");
@@ -153,29 +154,43 @@ public class OauthLgEmpAuthenticator {
         return headers;
     }
 
-    public LGThinqGateway discoverGatewayConfiguration(String gwUrl, String language, String country,
-            String alternativeEmpServer) throws IOException {
+    public Gateway discoverGatewayConfiguration(String gwUrl, String language, String country) throws IOException {
+        URL u = new URL(gwUrl);
+        HttpURLConnection con = (HttpURLConnection) u.openConnection();
         Map<String, String> header = getGatewayRestHeader(language, country);
-        RestResult result;
-        result = RestUtils.getCall(gwUrl, header, null);
+        try {
+            con.setRequestMethod("GET");
+            header.forEach((k, v) -> con.setRequestProperty(k, v));
+            int r = con.getResponseCode();
+            if (r != 200) {
+                throw new IllegalStateException("Expected HTTP OK return, but received result core:" + r);
+            } else {
+                BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                String inputLine;
+                StringBuffer content = new StringBuffer();
+                while ((inputLine = in.readLine()) != null) {
+                    content.append(inputLine);
+                }
+                in.close();
+                Map<String, Object> obj = objectMapper.readValue(content.toString(), new TypeReference<>() {
+                });
+                // get URL to authenticate
+                if (!"0000".equals(obj.get("resultCode"))) {
+                    throw new IllegalStateException(
+                            String.format("Result from LGThinq Gateway from Authentication URL was unexpected: %s",
+                                    obj.get("resultCode")));
+                }
+                Map<String, String> result = Objects.requireNonNull((Map<String, String>) obj.get("result"),
+                        "the json returned doesn't have 'result' structure.");
 
-        if (result.getStatusCode() != 200) {
-            throw new IllegalStateException(
-                    "Expected HTTP OK return, but received result core:" + result.getJsonResponse());
-        } else {
-            GatewayResult gwResult = LGThinqCanonicalModelUtil.getGatewayResult(result.getJsonResponse());
-            ResultCodes resultCode = ResultCodes.fromCode(gwResult.getReturnedCode());
-            if (ResultCodes.OK != resultCode) {
-                throw new IllegalStateException(String.format(
-                        "Result from LGThinq Gateway from Authentication URL was unexpected. ResultCode: %s, with message:%s, Error Description:%s",
-                        gwResult.getReturnedCode(), gwResult.getReturnedMessage(), resultCode.getDescription()));
+                return new Gateway(result, language, country);
             }
-
-            return new LGThinqGateway(gwResult, language, country, alternativeEmpServer);
+        } finally {
+            con.disconnect();
         }
     }
 
-    public PreLoginResult preLoginUser(LGThinqGateway gw, String username, String password) throws IOException {
+    public PreLoginResult preLoginUser(Gateway gw, String username, String password) throws IOException {
         String encPwd = RestUtils.getPreLoginEncPwd(password);
         Map<String, String> headers = getLoginHeader(gw);
         // 1) Doing preLogin -> getting the password key
@@ -188,7 +203,6 @@ public class OauthLgEmpAuthenticator {
             logger.error("Error preLogin into account. The reason is:{}", resp.getJsonResponse());
             throw new IllegalStateException(String.format("Error loggin into acccount:%s", resp.getJsonResponse()));
         }
-
         Map<String, String> preLoginResult = objectMapper.readValue(resp.getJsonResponse(), new TypeReference<>() {
         });
         logger.debug("encrypted_pw={}, signature={}, tStamp={}", preLoginResult.get("encrypted_pw"),
@@ -202,7 +216,7 @@ public class OauthLgEmpAuthenticator {
                         "Unexpected login json result. Node 'signature' not found"));
     }
 
-    public LoginAccountResult loginUser(LGThinqGateway gw, PreLoginResult preLoginResult) throws IOException {
+    public LoginAccountResult loginUser(Gateway gw, PreLoginResult preLoginResult) throws IOException {
         // 2 - Login with username and hashed password
         Map<String, String> headers = getLoginHeader(gw);
         headers.put("X-Signature", preLoginResult.getSignature());
@@ -215,6 +229,7 @@ public class OauthLgEmpAuthenticator {
         RestResult resp = RestUtils.postCall(loginUrl, headers, formData);
         if (resp.getStatusCode() != 200) {
             logger.error("Error login into account. The reason is:{}", resp.getJsonResponse());
+            // TODO - fazer o correto tratamento de erro aqui. Talvez subir uma exceção de validação custom
             throw new IllegalStateException(String.format("Error loggin into acccount:%s", resp.getJsonResponse()));
         }
         Map<String, Object> loginResult = objectMapper.readValue(resp.getJsonResponse(), new TypeReference<>() {
@@ -235,12 +250,12 @@ public class OauthLgEmpAuthenticator {
     }
 
     private String getCurrentTimestamp() {
-        SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT, Locale.US);
+        SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
         sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
         return sdf.format(new Date());
     }
 
-    public TokenResult getToken(LGThinqGateway gw, LoginAccountResult accountResult) throws IOException {
+    public TokenResult getToken(Gateway gw, LoginAccountResult accountResult) throws IOException {
         // 3 - get secret key from emp signature
         String empSearchKeyUrl = gw.getLoginBaseUri() + OAUTH_SEARCH_KEY_PATH;
 
@@ -264,7 +279,7 @@ public class OauthLgEmpAuthenticator {
         empData.put("username", "" + accountResult.getUserId());
         String timestamp = getCurrentTimestamp();
 
-        byte[] oauthSig = RestUtils.getTokenSignature(gw.getTokenSessionEmpUrl(), secretKey, empData, timestamp);
+        byte[] oauthSig = RestUtils.getTokenSignature(V2_EMP_SESS_URL, secretKey, empData, timestamp);
 
         Map<String, String> oauthEmpHeaders = new LinkedHashMap<>();
         oauthEmpHeaders.put("lgemp-x-app-key", OAUTH_CLIENT_KEY);
@@ -280,9 +295,8 @@ public class OauthLgEmpAuthenticator {
         oauthEmpHeaders.put("Accept-Language", "en-US,en;q=0.9");
         oauthEmpHeaders.put("User-Agent",
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.63 Safari/537.36 Edg/93.0.961.44");
-        logger.debug("===> Localized timestamp used: [{}]", timestamp);
-        logger.debug("===> signature created: [{}]", new String(oauthSig));
-        resp = RestUtils.postCall(gw.getTokenSessionEmpUrl(), oauthEmpHeaders, empData);
+
+        resp = RestUtils.postCall(V2_EMP_SESS_URL, oauthEmpHeaders, empData);
         return handleTokenResult(resp);
     }
 
@@ -306,6 +320,7 @@ public class OauthLgEmpAuthenticator {
         if (resp.getStatusCode() != 200) {
             logger.error("LG API returned error when trying to get user account information. The reason is:{}",
                     resp.getJsonResponse());
+            // TODO - fazer o correto tratamento de erro aqui. Talvez subir uma exceção de validação custom
             throw new IllegalStateException(
                     String.format("LG API returned error when trying to get user account information. The reason is:%s",
                             resp.getJsonResponse()));
@@ -325,7 +340,7 @@ public class OauthLgEmpAuthenticator {
                 Objects.requireNonNullElse(accountInfo.get("displayUserID"), ""));
     }
 
-    public TokenResult doRefreshToken(TokenResult currentToken) throws IOException, RefreshTokenException {
+    public TokenResult doRefreshToken(TokenResult currentToken) throws IOException {
         UriBuilder builder = UriBuilder.fromUri(currentToken.getOauthBackendUrl()).path(V2_AUTH_PATH);
         String oauthUrl = builder.build().toURL().toString();
         String timestamp = getCurrentTimestamp();
@@ -346,8 +361,8 @@ public class OauthLgEmpAuthenticator {
     private TokenResult handleTokenResult(RestResult resp) throws IOException {
         Map<String, Object> tokenResult;
         if (resp.getStatusCode() != 200) {
-            logger.error("Error getting oauth token. HTTP Status Code is:{}, The reason is:{}", resp.getStatusCode(),
-                    resp.getJsonResponse());
+            logger.error("Error getting oauth token. The reason is:{}", resp.getJsonResponse());
+            // TODO - fazer o correto tratamento de erro aqui. Talvez subir uma exceção de validação custom
             throw new IllegalStateException(String.format("Error getting oauth token:%s", resp.getJsonResponse()));
         } else {
             tokenResult = objectMapper.readValue(resp.getJsonResponse(), new TypeReference<>() {
@@ -369,18 +384,17 @@ public class OauthLgEmpAuthenticator {
                         "Unexpected result. oauth2_backend_url must be present in json result"));
     }
 
-    private TokenResult handleRefreshTokenResult(RestResult resp, TokenResult currentToken)
-            throws IOException, RefreshTokenException {
+    private TokenResult handleRefreshTokenResult(RestResult resp, TokenResult currentToken) throws IOException {
         Map<String, String> tokenResult;
         if (resp.getStatusCode() != 200) {
-            logger.error("Error getting oauth token. HTTP Status Code is:{}, The reason is:{}", resp.getStatusCode(),
-                    resp.getJsonResponse());
-            throw new RefreshTokenException(String.format("Error getting oauth token:%s", resp.getJsonResponse()));
+            logger.error("Error getting oauth token. The reason is:{}", resp.getJsonResponse());
+            // TODO - fazer o correto tratamento de erro aqui. Talvez subir uma exceção de validação custom
+            throw new IllegalStateException(String.format("Error getting oauth token:%s", resp.getJsonResponse()));
         } else {
             tokenResult = objectMapper.readValue(resp.getJsonResponse(), new TypeReference<>() {
             });
             if (tokenResult.get("access_token") == null || tokenResult.get("expires_in") == null) {
-                throw new RefreshTokenException(String.format("Status error get refresh token info:%s", tokenResult));
+                throw new IllegalStateException(String.format("Status error get refresh token info:%s", tokenResult));
             }
         }
 

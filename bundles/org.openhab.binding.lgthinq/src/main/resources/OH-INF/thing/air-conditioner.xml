@@ -10,8 +10,8 @@
 			<bridge-type-ref id="bridge"/>
 		</supported-bridge-type-refs>
 
-		<label>LG ThinQ Air Conditioner</label>
-		<description>LG ThinQ Air Conditioner</description>
+		<label>LG Thinq Air Conditioner</label>
+		<description>LG Thinq Air Conditioner</description>
 
 		<channels>
 			<channel id="target_temperature" typeId="target-temperature"/>
@@ -21,6 +21,12 @@
 			<channel id="power" typeId="system.power"/>
 		</channels>
 
+		<!-- <config-description> -->
+		<!-- <parameter name="airConditionerId" type="text" required="true"> -->
+		<!-- <label>Air Conditioner ID</label> -->
+		<!-- <description>Device Identifier for a specific air conditioner.</description> -->
+		<!-- </parameter> -->
+		<!-- </config-description> -->
 	</thing-type>
 
 </thing:thing-descriptions>

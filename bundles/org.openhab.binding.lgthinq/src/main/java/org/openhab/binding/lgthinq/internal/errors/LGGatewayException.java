@@ -15,17 +15,13 @@ package org.openhab.binding.lgthinq.internal.errors;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 
 /**
- * The {@link PreLoginException}
+ * The {@link LGGatewayException}
  *
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class RefreshTokenException extends LGApiException {
-    public RefreshTokenException(String message, Throwable cause) {
+public class LGGatewayException extends LGThinqException {
+    public LGGatewayException(String message, Throwable cause) {
         super(message, cause);
-    }
-
-    public RefreshTokenException(String message) {
-        super(message);
     }
 }
