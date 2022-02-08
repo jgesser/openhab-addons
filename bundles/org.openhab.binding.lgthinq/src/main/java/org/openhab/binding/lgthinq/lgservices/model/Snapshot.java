@@ -12,22 +12,21 @@
  */
 package org.openhab.binding.lgthinq.lgservices.model;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
- * The {@link LGAPIVerion}
+ * The {@link Snapshot}
  *
  * @author Nemer Daud - Initial contribution
  */
-public enum LGAPIVerion {
-    V1_0(1.0),
-    V2_0(2.0);
+@NonNullByDefault
+public interface Snapshot {
 
-    private final double version;
+    public DevicePowerState getPowerStatus();
 
-    LGAPIVerion(double v) {
-        version = v;
-    }
+    public void setPowerStatus(DevicePowerState value);
 
-    public double getValue() {
-        return version;
-    }
+    public boolean isOnline();
+
+    public void setOnline(boolean online);
 }

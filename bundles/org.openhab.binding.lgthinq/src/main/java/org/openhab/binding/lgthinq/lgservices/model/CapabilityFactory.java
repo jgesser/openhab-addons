@@ -12,77 +12,218 @@
  */
 package org.openhab.binding.lgthinq.lgservices.model;
 
-import java.util.Arrays;
+import static org.openhab.binding.lgthinq.lgservices.model.DeviceTypes.AIR_CONDITIONER;
+import static org.openhab.binding.lgthinq.lgservices.model.DeviceTypes.fromDeviceTypeAcron;
+
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapabilityFactoryV1;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapabilityFactoryV2;
-import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.FridgeCapabilityFactoryV1;
-import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.FridgeCapabilityFactoryV2;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerCapabilityFactoryV1;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerCapabilityFactoryV2;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
+import org.openhab.binding.lgthinq.lgservices.LGThinqApiV1ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.washer.WMCapability;
 
 /**
- * The {@link CapabilityFactory}
+ * The {@link LGThinqApiV1ClientServiceImpl}
  *
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
 public class CapabilityFactory {
-    Map<DeviceTypes, Map<LGAPIVerion, AbstractCapabilityFactory<? extends CapabilityDefinition>>> capabilityDeviceFactories = new HashMap<>();
-
-    private CapabilityFactory() {
-        List<AbstractCapabilityFactory<?>> factories = Arrays.asList(new ACCapabilityFactoryV1(),
-                new ACCapabilityFactoryV2(), new FridgeCapabilityFactoryV1(), new FridgeCapabilityFactoryV2(),
-                new WasherDryerCapabilityFactoryV1(), new WasherDryerCapabilityFactoryV2());
-        factories.forEach(f -> {
-            f.getSupportedDeviceTypes().forEach(d -> {
-                Map<LGAPIVerion, AbstractCapabilityFactory<?>> versionMap = capabilityDeviceFactories.get(d);
-                if (versionMap == null) {
-                    versionMap = new HashMap<>();
-                }
-                for (LGAPIVerion v : f.getSupportedAPIVersions()) {
-                    versionMap.put(v, f);
-                }
-                ;
-                capabilityDeviceFactories.put(d, versionMap);
-            });
-        });
-    }
-
     private static final CapabilityFactory instance;
     static {
         instance = new CapabilityFactory();
     }
-    private static final Logger logger = LoggerFactory.getLogger(CapabilityFactory.class);
-    private static final ObjectMapper mapper = new ObjectMapper();
 
-    public static CapabilityFactory getInstance() {
+    public static final CapabilityFactory getInstance() {
         return instance;
     }
 
-    public <C extends CapabilityDefinition> C create(JsonNode rootNode, Class<C> clazz) throws LGThinqException {
-        DeviceTypes type = ModelUtils.getDeviceType(rootNode);
-        LGAPIVerion version = ModelUtils.discoveryAPIVersion(rootNode);
-        Map<LGAPIVerion, AbstractCapabilityFactory<? extends CapabilityDefinition>> versionsFactory = capabilityDeviceFactories
-                .get(type);
-        if (versionsFactory == null || versionsFactory.isEmpty()) {
-            throw new IllegalStateException("Unexpected capability. The type " + type + " was not implemented yet");
+    public <T extends Capability> T create(Map<String, Object> rootMap, Class<T> capType) throws LGThinqApiException {
+        DeviceTypes type = getDeviceType(rootMap);
+
+        switch (type) {
+            case AIR_CONDITIONER:
+                return capType.cast(getAcCapabilities(rootMap));
+            case WASHING_MACHINE:
+                return capType.cast(getWmCapabilities(rootMap));
+            default:
+                throw new IllegalStateException("Unexpected capability. The type " + type + " was not implemented yet");
         }
-        AbstractCapabilityFactory<? extends CapabilityDefinition> factory = versionsFactory.get(version);
-        if (factory == null) {
-            throw new IllegalStateException(
-                    "Unexpected capability. The type " + type + " and version " + version + " was not implemented yet");
+    }
+
+    private DeviceTypes getDeviceType(Map<String, Object> rootMap) {
+        Map<String, String> infoMap = (Map<String, String>) rootMap.get("Info");
+        Objects.requireNonNull(infoMap, "Unexpected error. Info node not present in capability schema");
+        String productType = infoMap.get("productType");
+        Objects.requireNonNull(infoMap, "Unexpected error. ProductType attribute not present in capability schema");
+        DeviceTypes type = fromDeviceTypeAcron(productType);
+        return type;
+    }
+
+    private WMCapability getWmCapabilities(Map<String, Object> rootMap) throws LGThinqApiException {
+        LGAPIVerion version = discoveryAPIVersion(rootMap);
+        if (version == LGAPIVerion.V2_0) {
+            Map<String, Object> monValue = (Map<String, Object>) rootMap.get("MonitoringValue");
+            Objects.requireNonNull(monValue, "Unexpected error. Info Config not present in capability schema");
+            WMCapability wmCap = new WMCapability();
+
+            Map<String, Object> courseMap = (Map<String, Object>) rootMap.get("Course");
+            Objects.requireNonNull(courseMap, "Unexpected error. Info Config not present in capability schema");
+            courseMap.forEach((k, v) -> {
+                wmCap.addCourse(Objects.requireNonNull(((Map<String, String>) v).get("name"),
+                        "Name property for course node must be present"), k);
+            });
+
+            loadMonValueCap(WMCapability.MonitoringCap.STATE, monValue, wmCap);
+            loadMonValueCap(WMCapability.MonitoringCap.SOIL_WASH, monValue, wmCap);
+            loadMonValueCap(WMCapability.MonitoringCap.SPIN, monValue, wmCap);
+            loadMonValueCap(WMCapability.MonitoringCap.TEMPERATURE, monValue, wmCap);
+            loadMonValueCap(WMCapability.MonitoringCap.RINSE, monValue, wmCap);
+            if (monValue.get("doorLock") != null) {
+                wmCap.setHasDoorLook(true);
+            }
+            if (monValue.get("turboWash") != null) {
+                wmCap.setHasTurboWash(true);
+            }
+            return wmCap;
+        } else {
+            throw new LGThinqApiException(
+                    "Version " + version.getValue() + " for Washers not supported for this binding.");
         }
-        return clazz.cast(factory.create(rootNode));
+    }
+
+    private void loadMonValueCap(WMCapability.MonitoringCap monCap, Map<String, Object> monMap, WMCapability wmCap) {
+        Map<String, Object> nodeMap = (Map<String, Object>) monMap.get(monCap.getValue());
+        if (nodeMap == null) {
+            // ignore feature, since it doe
+            return;
+        }
+        Map<String, Object> map = (Map<String, Object>) nodeMap.get("valueMapping");
+        Objects.requireNonNull(map, "Unexpected error. valueMapping attribute is mandatory");
+        map.forEach((k, v) -> {
+            wmCap.addMonitoringValue(monCap, Objects.requireNonNull(((Map<String, String>) v).get("label"),
+                    "label property for course node must be present"), k);
+        });
+    }
+
+    private ACCapability getAcCapabilities(Map<String, Object> rootMap) throws LGThinqApiException {
+        LGAPIVerion version = discoveryAPIVersion(rootMap);
+        if (version == LGAPIVerion.V1_0) {
+            ACCapability acCap = new ACCapability();
+            Map<String, Object> cap = (Map<String, Object>) rootMap.get("Value");
+            if (cap == null) {
+                throw new LGThinqApiException("Error extracting capabilities supported by the device");
+            }
+
+            Map<String, Object> opModes = (Map<String, Object>) cap.get("OpMode");
+            if (opModes == null) {
+                throw new LGThinqApiException("Error extracting opModes supported by the device");
+            } else {
+                Map<String, String> modes = new HashMap<String, String>();
+                ((Map<String, String>) opModes.get("option")).forEach((k, v) -> {
+                    modes.put(v, k);
+                });
+                acCap.setOpMod(modes);
+            }
+            Map<String, Object> fanSpeed = (Map<String, Object>) cap.get("WindStrength");
+            if (fanSpeed == null) {
+                throw new LGThinqApiException("Error extracting fanSpeed supported by the device");
+            } else {
+                Map<String, String> fanModes = new HashMap<String, String>();
+                ((Map<String, String>) fanSpeed.get("option")).forEach((k, v) -> {
+                    fanModes.put(v, k);
+                });
+                acCap.setFanSpeed(fanModes);
+
+            }
+            // Set supported modes for the device
+
+            Map<String, Map<String, String>> supOpModes = (Map<String, Map<String, String>>) cap.get("SupportOpMode");
+            acCap.setSupportedOpMode(new ArrayList<>(supOpModes.get("option").values()));
+            acCap.getSupportedOpMode().remove("@NON");
+            Map<String, Map<String, String>> supFanSpeeds = (Map<String, Map<String, String>>) cap
+                    .get("SupportWindStrength");
+            acCap.setSupportedFanSpeed(new ArrayList<>(supFanSpeeds.get("option").values()));
+            acCap.getSupportedFanSpeed().remove("@NON");
+
+            return acCap;
+        } else {
+            Map<String, Object> cap = (Map<String, Object>) rootMap.get("Value");
+            if (cap == null) {
+                throw new LGThinqApiException("Error extracting capabilities supported by the device");
+            }
+            ACCapability acCap = new ACCapability();
+            Map<String, Object> opModes = (Map<String, Object>) cap.get("airState.opMode");
+            if (opModes == null) {
+                throw new LGThinqApiException("Error extracting opModes supported by the device");
+            } else {
+                Map<String, String> modes = new HashMap<String, String>();
+                ((Map<String, String>) opModes.get("value_mapping")).forEach((k, v) -> {
+                    modes.put(v, k);
+                });
+                acCap.setOpMod(modes);
+            }
+            Map<String, Object> fanSpeed = (Map<String, Object>) cap.get("airState.windStrength");
+            if (fanSpeed == null) {
+                throw new LGThinqApiException("Error extracting fanSpeed supported by the device");
+            } else {
+                Map<String, String> fanModes = new HashMap<String, String>();
+                ((Map<String, String>) fanSpeed.get("value_mapping")).forEach((k, v) -> {
+                    fanModes.put(v, k);
+                });
+                acCap.setFanSpeed(fanModes);
+
+            }
+            // Set supported modes for the device
+            Map<String, Map<String, String>> supOpModes = (Map<String, Map<String, String>>) cap
+                    .get("support.airState.opMode");
+            acCap.setSupportedOpMode(new ArrayList<>(supOpModes.get("value_mapping").values()));
+            acCap.getSupportedOpMode().remove("@NON");
+            Map<String, Map<String, String>> supFanSpeeds = (Map<String, Map<String, String>>) cap
+                    .get("support.airState.windStrength");
+            acCap.setSupportedFanSpeed(new ArrayList<>(supFanSpeeds.get("value_mapping").values()));
+            acCap.getSupportedFanSpeed().remove("@NON");
+            return acCap;
+        }
+    }
+
+    private LGAPIVerion discoveryAPIVersion(Map<String, Object> rootMap) {
+        DeviceTypes type = getDeviceType(rootMap);
+        switch (type) {
+            case AIR_CONDITIONER:
+                Map<String, Object> valueNode = getCapabilitySession(rootMap, AIR_CONDITIONER);
+                if (valueNode.containsKey("support.airState.opMode")) {
+                    return LGAPIVerion.V2_0;
+                } else if (valueNode.containsKey("SupportOpMode")) {
+                    return LGAPIVerion.V1_0;
+                } else {
+                    throw new IllegalStateException(
+                            "Unexpected error. Can't find key node attributes to determine AC API version.");
+                }
+
+            case WASHING_MACHINE:
+                return LGAPIVerion.V2_0;
+            default:
+                throw new IllegalStateException("Unexpected capability. The type " + type + " was not implemented yet");
+        }
+    }
+
+    private Map<String, Object> getCapabilitySession(Map<String, Object> rootMap, DeviceTypes type) {
+        switch (type) {
+            case AIR_CONDITIONER:
+                Map<String, Object> values = (Map<String, Object>) rootMap.get("Value");
+                Objects.requireNonNull(values, "Unexpected error. Value node is expected for AC Capabilities");
+                return values;
+            case WASHING_MACHINE:
+                Map<String, Object> config = (Map<String, Object>) rootMap.get("Config");
+                Objects.requireNonNull(config, "Unexpected error. Config node is expected for Washing Machines");
+                return config;
+            default:
+                throw new IllegalStateException("Unexpected capability. The type " + type + " was not implemented yet");
+        }
     }
 }

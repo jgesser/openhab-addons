@@ -13,21 +13,10 @@
 package org.openhab.binding.lgthinq.lgservices.model;
 
 /**
- * The {@link LGAPIVerion}
+ * The {@link Capability}
  *
  * @author Nemer Daud - Initial contribution
  */
-public enum LGAPIVerion {
-    V1_0(1.0),
-    V2_0(2.0);
+public abstract class Capability {
 
-    private final double version;
-
-    LGAPIVerion(double v) {
-        version = v;
-    }
-
-    public double getValue() {
-        return version;
-    }
 }
