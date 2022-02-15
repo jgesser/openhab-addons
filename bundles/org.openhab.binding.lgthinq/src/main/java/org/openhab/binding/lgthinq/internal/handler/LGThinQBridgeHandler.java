@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.lgthinq.internal.LGThinQBridgeConfiguration;
+import org.openhab.binding.lgthinq.internal.LGThinQConfiguration;
 import org.openhab.binding.lgthinq.internal.api.TokenManager;
 import org.openhab.binding.lgthinq.internal.discovery.LGThinqDiscoveryService;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
@@ -34,10 +34,7 @@ import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
 import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
-import org.openhab.core.thing.Bridge;
-import org.openhab.core.thing.ChannelUID;
-import org.openhab.core.thing.ThingStatus;
-import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.thing.*;
 import org.openhab.core.thing.binding.ConfigStatusBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.types.Command;
@@ -66,7 +63,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
         }
     }
     private final Logger logger = LoggerFactory.getLogger(LGThinQBridgeHandler.class);
-    private LGThinQBridgeConfiguration lgthinqConfig;
+    private LGThinQConfiguration lgthinqConfig;
     private TokenManager tokenManager;
     private LGThinqDiscoveryService discoveryService;
     private LGThinQApiClientService lgApiClient;
@@ -87,7 +84,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
      */
     abstract class PollingRunnable implements Runnable {
         protected final String bridgeName;
-        protected LGThinQBridgeConfiguration lgthinqConfig;
+        protected LGThinQConfiguration lgthinqConfig;
 
         PollingRunnable(String bridgeName) {
             this.bridgeName = bridgeName;
@@ -278,7 +275,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
     @Override
     public void initialize() {
         logger.debug("Initializing LGThinq bridge handler.");
-        lgthinqConfig = getConfigAs(LGThinQBridgeConfiguration.class);
+        lgthinqConfig = getConfigAs(LGThinQConfiguration.class);
         lgDevicePollingRunnable.lgthinqConfig = lgthinqConfig;
 
         if (lgthinqConfig.username.isEmpty() || lgthinqConfig.password.isEmpty() || lgthinqConfig.language.isEmpty()
@@ -309,22 +306,18 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
         if (devicePollingJob != null && !devicePollingJob.isDone()) {
             devicePollingJob.cancel(true);
         }
-        long poolingInterval;
-        int configPollingInterval = lgthinqConfig.getPoolingIntervalSec();
+        long pollingInterval;
+        int configPollingInterval = lgthinqConfig.getPollingIntervalSec();
         // It's not recommended to polling for resources in LG API short intervals to do not enter in BlackList
-        if (configPollingInterval < 300 && configPollingInterval != 0) {
-            poolingInterval = TimeUnit.SECONDS.toSeconds(300);
-            logger.info("Wrong configuration value for pooling interval. Using default value: {}s", poolingInterval);
+        if (configPollingInterval < 300) {
+            pollingInterval = TimeUnit.SECONDS.toSeconds(300);
+            logger.info("Wrong configuration value for polling interval. Using default value: {}s", pollingInterval);
         } else {
-            if (configPollingInterval == 0) {
-                logger.info("LG's discovery pooling disabled (configured as zero)");
-                return;
-            }
-            poolingInterval = configPollingInterval;
+            pollingInterval = configPollingInterval;
         }
         // submit instantlly and schedule for the next polling interval.
         scheduler.submit(lgDevicePollingRunnable);
-        devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, poolingInterval, poolingInterval,
+        devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, pollingInterval, pollingInterval,
                 TimeUnit.SECONDS);
     }
 

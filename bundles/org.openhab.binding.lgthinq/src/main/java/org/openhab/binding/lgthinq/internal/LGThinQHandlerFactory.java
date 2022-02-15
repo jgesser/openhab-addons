@@ -16,7 +16,10 @@ import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.lgthinq.internal.handler.*;
+import org.openhab.binding.lgthinq.internal.handler.LGThinQAirConditionerHandler;
+import org.openhab.binding.lgthinq.internal.handler.LGThinQBridgeHandler;
+import org.openhab.binding.lgthinq.internal.handler.LGThinQDryerHandler;
+import org.openhab.binding.lgthinq.internal.handler.LGThinQWasherHandler;
 import org.openhab.core.config.core.Configuration;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Thing;
@@ -53,16 +56,14 @@ public class LGThinQHandlerFactory extends BaseThingHandlerFactory {
     protected @Nullable ThingHandler createHandler(Thing thing) {
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
 
-        if (THING_TYPE_AIR_CONDITIONER.equals(thingTypeUID) || THING_TYPE_HEAT_PUMP.equals(thingTypeUID)) {
+        if (THING_TYPE_AIR_CONDITIONER.equals(thingTypeUID)) {
             return new LGThinQAirConditionerHandler(thing, stateDescriptionProvider);
         } else if (THING_TYPE_BRIDGE.equals(thingTypeUID)) {
             return new LGThinQBridgeHandler((Bridge) thing);
-        } else if (THING_TYPE_WASHING_MACHINE.equals(thingTypeUID) || THING_TYPE_WASHING_TOWER.equals(thingTypeUID)) {
-            return new LGThinQWasherDryerHandler(thing, stateDescriptionProvider);
-        } else if (THING_TYPE_DRYER.equals(thingTypeUID) || THING_TYPE_DRYER_TOWER.equals(thingTypeUID)) {
-            return new LGThinQWasherDryerHandler(thing, stateDescriptionProvider);
-        } else if (THING_TYPE_FRIDGE.equals(thingTypeUID)) {
-            return new LGThinQFridgeHandler(thing, stateDescriptionProvider);
+        } else if (THING_TYPE_WASHING_MACHINE.equals(thingTypeUID)) {
+            return new LGThinQWasherHandler(thing, stateDescriptionProvider);
+        } else if (THING_TYPE_DRYER.equals(thingTypeUID)) {
+            return new LGThinQDryerHandler(thing, stateDescriptionProvider);
         }
         logger.error("Thing not supported by this Factory: {}", thingTypeUID.getId());
         return null;
@@ -73,13 +74,11 @@ public class LGThinQHandlerFactory extends BaseThingHandlerFactory {
             @Nullable ThingUID thingUID, @Nullable ThingUID bridgeUID) {
         if (THING_TYPE_BRIDGE.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, null);
-        } else if (THING_TYPE_AIR_CONDITIONER.equals(thingTypeUID) || THING_TYPE_HEAT_PUMP.equals(thingTypeUID)) {
+        } else if (THING_TYPE_AIR_CONDITIONER.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
-        } else if (THING_TYPE_WASHING_MACHINE.equals(thingTypeUID) || THING_TYPE_WASHING_TOWER.equals(thingTypeUID)) {
+        } else if (THING_TYPE_WASHING_MACHINE.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
-        } else if (THING_TYPE_DRYER.equals(thingTypeUID) || THING_TYPE_DRYER_TOWER.equals(thingTypeUID)) {
-            return super.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
-        } else if (THING_TYPE_FRIDGE.equals(thingTypeUID)) {
+        } else if (THING_TYPE_DRYER.equals(thingTypeUID)) {
             return super.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
         }
         return null;

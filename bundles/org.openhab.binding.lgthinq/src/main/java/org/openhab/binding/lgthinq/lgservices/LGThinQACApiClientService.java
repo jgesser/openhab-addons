@@ -14,9 +14,9 @@ package org.openhab.binding.lgthinq.lgservices;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACTargetTmp;
 
 /**
  * The {@link LGThinQACApiClientService}
@@ -24,19 +24,11 @@ import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public interface LGThinQACApiClientService extends LGThinQApiClientService<ACCapability, ACCanonicalSnapshot> {
+public interface LGThinQACApiClientService extends LGThinQApiClientService<ACCapability, ACSnapshot> {
     void changeOperationMode(String bridgeName, String deviceId, int newOpMode) throws LGThinqApiException;
 
     void changeFanSpeed(String bridgeName, String deviceId, int newFanSpeed) throws LGThinqApiException;
 
     void changeTargetTemperature(String bridgeName, String deviceId, ACTargetTmp newTargetTemp)
             throws LGThinqApiException;
-
-    void turnCoolJetMode(String bridgeName, String deviceId, String modeOnOff) throws LGThinqApiException;
-
-    void turnAirCleanMode(String bridgeName, String deviceId, String modeOnOff) throws LGThinqApiException;
-
-    void turnAutoDryMode(String bridgeName, String deviceId, String modeOnOff) throws LGThinqApiException;
-
-    void turnEnergySavingMode(String bridgeName, String deviceId, String modeOnOff) throws LGThinqApiException;
 }

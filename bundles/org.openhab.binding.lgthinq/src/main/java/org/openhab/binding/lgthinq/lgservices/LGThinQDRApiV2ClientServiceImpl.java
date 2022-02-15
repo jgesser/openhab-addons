@@ -12,15 +12,11 @@
  */
 package org.openhab.binding.lgthinq.lgservices;
 
-import java.io.IOException;
-
-import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.lgthinq.internal.api.RestResult;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerCapability;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.dryer.DryerCapability;
+import org.openhab.binding.lgthinq.lgservices.model.dryer.DryerSnapshot;
 
 /**
  * The {@link LGThinQDRApiV2ClientServiceImpl}
@@ -28,29 +24,17 @@ import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDr
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQDRApiV2ClientServiceImpl
-        extends LGThinQAbstractApiV2ClientService<WasherDryerCapability, WasherDryerSnapshot>
+public class LGThinQDRApiV2ClientServiceImpl extends LGThinQAbstractApiClientService<DryerCapability, DryerSnapshot>
         implements LGThinQDRApiClientService {
 
     private static final LGThinQDRApiV2ClientServiceImpl instance;
     static {
-        instance = new LGThinQDRApiV2ClientServiceImpl(WasherDryerCapability.class, WasherDryerSnapshot.class);
+        instance = new LGThinQDRApiV2ClientServiceImpl(DryerCapability.class, DryerSnapshot.class);
     }
 
-    protected LGThinQDRApiV2ClientServiceImpl(Class<WasherDryerCapability> capabilityClass,
-            Class<WasherDryerSnapshot> snapshotClass) {
+    protected LGThinQDRApiV2ClientServiceImpl(Class<DryerCapability> capabilityClass,
+            Class<DryerSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
-    }
-
-    @Override
-    protected void beforeGetDataDevice(@NonNull String bridgeName, @NonNull String deviceId) {
-        // TODO - Analise what to do here
-    }
-
-    @Override
-    public double getInstantPowerConsumption(@NonNull String bridgeName, @NonNull String deviceId)
-            throws LGThinqApiException, IOException {
-        return 0;
     }
 
     public static LGThinQDRApiV2ClientServiceImpl getInstance() {
@@ -61,31 +45,5 @@ public class LGThinQDRApiV2ClientServiceImpl
     public void turnDevicePower(String bridgeName, String deviceId, DevicePowerState newPowerState)
             throws LGThinqApiException {
         throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    @Override
-    public void remoteStart(String bridgeName, String deviceId) throws LGThinqApiException {
-        try {
-            RestResult result = sendControlCommands(bridgeName, deviceId, "control-sync", "WMStart", "WMStart",
-                    "WMStart", "");
-            handleGenericErrorResult(result);
-        } catch (LGThinqApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new LGThinqApiException("Error sending remote start", e);
-        }
-    }
-
-    @Override
-    public void wakeUp(String bridgeName, String deviceId) throws LGThinqApiException {
-        try {
-            RestResult result = sendControlCommands(bridgeName, deviceId, "control-sync", "WMWakeup", "WMWakeup", "",
-                    "");
-            handleGenericErrorResult(result);
-        } catch (LGThinqApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new LGThinqApiException("Error sending remote start", e);
-        }
     }
 }

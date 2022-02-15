@@ -14,35 +14,27 @@ package org.openhab.binding.lgthinq.internal.handler;
 
 import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.LGThinQDeviceDynStateDescriptionProvider;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
+import org.openhab.binding.lgthinq.lgservices.*;
 import org.openhab.binding.lgthinq.lgservices.LGThinQACApiClientService;
 import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
-import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV2ClientServiceImpl;
-import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
-import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.ac.ACTargetTmp;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
-import org.openhab.core.thing.Bridge;
-import org.openhab.core.thing.Channel;
-import org.openhab.core.thing.ChannelUID;
-import org.openhab.core.thing.Thing;
-import org.openhab.core.thing.binding.builder.ChannelBuilder;
-import org.openhab.core.thing.type.ChannelKind;
-import org.openhab.core.thing.type.ChannelTypeUID;
+import org.openhab.core.thing.*;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.StateOption;
 import org.slf4j.Logger;
@@ -55,15 +47,12 @@ import org.slf4j.LoggerFactory;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<ACCapability, ACCanonicalSnapshot> {
+public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<ACCapability, ACSnapshot> {
 
     private final ChannelUID opModeChannelUID;
     private final ChannelUID fanSpeedChannelUID;
-    private final ChannelUID jetModeChannelUID;
-    private final ChannelUID airCleanChannelUID;
-    private final ChannelUID autoDryChannelUID;
-    private final ChannelUID energySavingChannelUID;
-
+    @Nullable
+    private ACCapability acCapability;
     private final Logger logger = LoggerFactory.getLogger(LGThinQAirConditionerHandler.class);
     @NonNullByDefault
     private final LGThinQACApiClientService lgThinqACApiClientService;
@@ -77,10 +66,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
                 : LGThinQACApiV2ClientServiceImpl.getInstance();
         opModeChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_MOD_OP_ID);
         fanSpeedChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_FAN_SPEED_ID);
-        jetModeChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_COOL_JET_ID);
-        airCleanChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_AIR_CLEAN_ID);
-        autoDryChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_AUTO_DRY_ID);
-        energySavingChannelUID = new ChannelUID(getThing().getUID(), CHANNEL_ENERGY_SAVING_ID);
     }
 
     @Override
@@ -91,86 +76,47 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
-    protected void updateDeviceChannels(ACCanonicalSnapshot shot) {
+    protected void updateDeviceChannels(ACSnapshot shot) {
+        updateState(CHANNEL_MOD_OP_ID, new DecimalType(shot.getOperationMode()));
+        updateState(CHANNEL_POWER_ID, OnOffType.from(shot.getPowerStatus() == DevicePowerState.DV_POWER_ON));
+        // TODO - validate if is needed to change the status of the thing from OFFLINE to ONLINE (as
+        // soon as LG WebOs do)
+        updateState(CHANNEL_FAN_SPEED_ID, new DecimalType(shot.getAirWindStrength()));
+        updateState(CHANNEL_CURRENT_TEMP_ID, new DecimalType(shot.getCurrentTemperature()));
+        updateState(CHANNEL_TARGET_TEMP_ID, new DecimalType(shot.getTargetTemperature()));
+        updateStatus(ThingStatus.ONLINE);
+    }
 
-        updateState(CHANNEL_POWER_ID,
-                DevicePowerState.DV_POWER_ON.equals(shot.getPowerStatus()) ? OnOffType.ON : OnOffType.OFF);
-        updateState(CHANNEL_MOD_OP_ID, new DecimalType(BigDecimal.valueOf(shot.getOperationMode())));
-        updateState(CHANNEL_FAN_SPEED_ID, new DecimalType(BigDecimal.valueOf(shot.getAirWindStrength())));
-        updateState(CHANNEL_CURRENT_TEMP_ID, new DecimalType(BigDecimal.valueOf(shot.getCurrentTemperature())));
-        updateState(CHANNEL_TARGET_TEMP_ID, new DecimalType(BigDecimal.valueOf(shot.getTargetTemperature())));
-        try {
-            ACCapability acCap = getCapabilities();
-            if (getThing().getChannel(jetModeChannelUID) != null) {
-                Double commandCoolJetOn = Double.valueOf(acCap.getCoolJetModeCommandOn());
-                updateState(CHANNEL_COOL_JET_ID,
-                        commandCoolJetOn.equals(shot.getCoolJetMode()) ? OnOffType.ON : OnOffType.OFF);
-            }
-            if (getThing().getChannel(airCleanChannelUID) != null) {
-                Double commandAirCleanOn = Double.valueOf(acCap.getAirCleanModeCommandOn());
-                updateState(CHANNEL_AIR_CLEAN_ID,
-                        commandAirCleanOn.equals(shot.getAirCleanMode()) ? OnOffType.ON : OnOffType.OFF);
-            }
-            if (getThing().getChannel(energySavingChannelUID) != null) {
-                Double energySavingOn = Double.valueOf(acCap.getEnergySavingModeCommandOn());
-                updateState(CHANNEL_ENERGY_SAVING_ID,
-                        energySavingOn.equals(shot.getEnergySavingMode()) ? OnOffType.ON : OnOffType.OFF);
-            }
-            if (getThing().getChannel(autoDryChannelUID) != null) {
-                Double autoDryOn = Double.valueOf(acCap.getCoolJetModeCommandOn());
-                updateState(CHANNEL_AUTO_DRY_ID,
-                        autoDryOn.equals(shot.getAutoDryMode()) ? OnOffType.ON : OnOffType.OFF);
-            }
-
-        } catch (LGThinqApiException e) {
-            logger.error("Unexpected Error gettinf ACCapability Capabilities", e);
-        } catch (NumberFormatException e) {
-            logger.warn("command value for capability is not numeric.", e);
-        }
+    @NonNull
+    private String emptyIfNull(@Nullable String value) {
+        return value == null ? "" : "" + value;
     }
 
     @Override
     public void updateChannelDynStateDescription() throws LGThinqApiException {
         ACCapability acCap = getCapabilities();
-        if (getThing().getChannel(jetModeChannelUID) == null && acCap.isJetModeAvailable()) {
-            createDynSwitchChannel(CHANNEL_COOL_JET_ID, jetModeChannelUID);
-        }
-        if (getThing().getChannel(autoDryChannelUID) == null && acCap.isAutoDryModeAvailable()) {
-            createDynSwitchChannel(CHANNEL_AUTO_DRY_ID, autoDryChannelUID);
-        }
-        if (getThing().getChannel(airCleanChannelUID) == null && acCap.isAirCleanAvailable()) {
-            createDynSwitchChannel(CHANNEL_AIR_CLEAN_ID, airCleanChannelUID);
-        }
-        if (getThing().getChannel(energySavingChannelUID) == null && acCap.isEnergySavingAvailable()) {
-            createDynSwitchChannel(CHANNEL_ENERGY_SAVING_ID, energySavingChannelUID);
-        }
-        if (getThing().getChannel(fanSpeedChannelUID) == null && !acCap.getFanSpeed().isEmpty()) {
-            List<StateOption> options = new ArrayList<>();
-            acCap.getFanSpeed()
-                    .forEach((k, v) -> options.add(new StateOption(k, emptyIfNull(CAP_AC_FAN_SPEED.get(v)))));
-            stateDescriptionProvider.setStateOptions(fanSpeedChannelUID, options);
-        }
         if (isLinked(opModeChannelUID)) {
             List<StateOption> options = new ArrayList<>();
-            acCap.getOpMode().forEach((k, v) -> options.add(new StateOption(k, emptyIfNull(CAP_AC_OP_MODE.get(v)))));
+            acCap.getSupportedOpMode().forEach((v) -> options
+                    .add(new StateOption(emptyIfNull(acCap.getOpMod().get(v)), emptyIfNull(CAP_AC_OP_MODE.get(v)))));
             stateDescriptionProvider.setStateOptions(opModeChannelUID, options);
         }
-    }
-
-    private void createDynSwitchChannel(String channelName, ChannelUID chanelUuid) {
-        if (getCallback() == null) {
-            logger.error("Unexpected behaviour. Callback not ready! Can't create dynamic channels");
-        } else {
-            // dynamic create channel
-            ChannelBuilder builder = getCallback().createChannelBuilder(chanelUuid,
-                    new ChannelTypeUID(BINDING_ID, channelName));
-            Channel channel = builder.withKind(ChannelKind.STATE).withAcceptedItemType("Switch").build();
-            updateThing(editThing().withChannel(channel).build());
+        if (isLinked(fanSpeedChannelUID)) {
+            List<StateOption> options = new ArrayList<>();
+            acCap.getSupportedFanSpeed().forEach((v) -> options.add(
+                    new StateOption(emptyIfNull(acCap.getFanSpeed().get(v)), emptyIfNull(CAP_AC_FAN_SPEED.get(v)))));
+            stateDescriptionProvider.setStateOptions(fanSpeedChannelUID, options);
+        }
+        if (isLinked(fanSpeedChannelUID)) {
+            List<StateOption> options = new ArrayList<>();
+            acCap.getSupportedFanSpeed().forEach((v) -> options.add(
+                    new StateOption(emptyIfNull(acCap.getFanSpeed().get(v)), emptyIfNull(CAP_AC_FAN_SPEED.get(v)))));
+            stateDescriptionProvider.setStateOptions(fanSpeedChannelUID, options);
         }
     }
 
     @Override
-    public LGThinQApiClientService<ACCapability, ACCanonicalSnapshot> getLgThinQAPIClientService() {
+    public LGThinQApiClientService<ACCapability, ACSnapshot> getLgThinQAPIClientService() {
         return lgThinqACApiClientService;
     }
 
@@ -186,20 +132,14 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
         }
     }
 
-    protected DeviceTypes getDeviceType() {
-        if (THING_TYPE_HEAT_PUMP.equals(getThing().getThingTypeUID())) {
-            return DeviceTypes.HEAT_PUMP;
-        } else if (THING_TYPE_AIR_CONDITIONER.equals(getThing().getThingTypeUID())) {
-            return DeviceTypes.AIR_CONDITIONER;
-        } else {
-            throw new IllegalArgumentException(
-                    "DeviceTypeUuid [" + getThing().getThingTypeUID() + "] not expected for AirConditioner/HeatPump");
-        }
-    }
-
     @Override
     public void onDeviceAdded(LGDevice device) {
         // TODO - handle it. Think if it's needed
+    }
+
+    @Override
+    public String getDeviceId() {
+        return getThing().getUID().getId();
     }
 
     @Override
@@ -208,8 +148,19 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
+    public String getDeviceModelName() {
+        return emptyIfNull(getThing().getProperties().get(MODEL_NAME));
+    }
+
+    @Override
     public String getDeviceUriJsonConfig() {
         return emptyIfNull(getThing().getProperties().get(MODEL_URL_INFO));
+    }
+
+    @Override
+    public boolean onDeviceStateChanged() {
+        // TODO - HANDLE IT, Think if it's needed
+        return false;
     }
 
     @Override
@@ -218,7 +169,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
-    public void onDeviceDisconnected() {
+    public void onDeviceGone() {
         // TODO - HANDLE IT, Think if it's needed
     }
 
@@ -249,46 +200,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
                             command == OnOffType.ON ? DevicePowerState.DV_POWER_ON : DevicePowerState.DV_POWER_OFF);
                 } else {
                     logger.warn("Received command different of OnOffType in Power Channel. Ignoring");
-                }
-                break;
-            }
-            case CHANNEL_COOL_JET_ID: {
-                if (command instanceof OnOffType) {
-                    lgThinqACApiClientService.turnCoolJetMode(getBridgeId(), getDeviceId(),
-                            command == OnOffType.ON ? getCapabilities().getCoolJetModeCommandOn()
-                                    : getCapabilities().getCoolJetModeCommandOff());
-                } else {
-                    logger.warn("Received command different of OnOffType in CoolJet Mode Channel. Ignoring");
-                }
-                break;
-            }
-            case CHANNEL_AIR_CLEAN_ID: {
-                if (command instanceof OnOffType) {
-                    lgThinqACApiClientService.turnAirCleanMode(getBridgeId(), getDeviceId(),
-                            command == OnOffType.ON ? getCapabilities().getAirCleanModeCommandOn()
-                                    : getCapabilities().getAirCleanModeCommandOff());
-                } else {
-                    logger.warn("Received command different of OnOffType in AirClean Mode Channel. Ignoring");
-                }
-                break;
-            }
-            case CHANNEL_AUTO_DRY_ID: {
-                if (command instanceof OnOffType) {
-                    lgThinqACApiClientService.turnAutoDryMode(getBridgeId(), getDeviceId(),
-                            command == OnOffType.ON ? getCapabilities().getAutoDryModeCommandOn()
-                                    : getCapabilities().getAutoDryModeCommandOff());
-                } else {
-                    logger.warn("Received command different of OnOffType in AutoDry Mode Channel. Ignoring");
-                }
-                break;
-            }
-            case CHANNEL_ENERGY_SAVING_ID: {
-                if (command instanceof OnOffType) {
-                    lgThinqACApiClientService.turnEnergySavingMode(getBridgeId(), getDeviceId(),
-                            command == OnOffType.ON ? getCapabilities().getEnergySavingModeCommandOn()
-                                    : getCapabilities().getEnergySavingModeCommandOff());
-                } else {
-                    logger.warn("Received command different of OnOffType in EvergySaving Mode Channel. Ignoring");
                 }
                 break;
             }
