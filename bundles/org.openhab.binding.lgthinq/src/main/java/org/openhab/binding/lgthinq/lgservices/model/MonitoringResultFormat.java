@@ -38,7 +38,6 @@ public enum MonitoringResultFormat {
                 return BINARY_FORMAT;
             case "JSON":
             case "Full ModelJson":
-            case "RAC ModelJson":
                 return JSON_FORMAT;
             default:
                 return UNKNOWN_FORMAT;
