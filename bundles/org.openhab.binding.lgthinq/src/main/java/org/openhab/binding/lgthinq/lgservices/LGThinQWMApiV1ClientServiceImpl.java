@@ -13,16 +13,14 @@
 package org.openhab.binding.lgthinq.lgservices;
 
 import java.io.IOException;
-import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.lgthinq.internal.api.RestResult;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerCapability;
-import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.washer.WasherCapability;
+import org.openhab.binding.lgthinq.lgservices.model.washer.WasherSnapshot;
 
 /**
  * The {@link LGThinQWMApiV1ClientServiceImpl}
@@ -30,23 +28,17 @@ import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDr
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQWMApiV1ClientServiceImpl
-        extends LGThinQAbstractApiV1ClientService<WasherDryerCapability, WasherDryerSnapshot>
+public class LGThinQWMApiV1ClientServiceImpl extends LGThinQAbstractApiClientService<WasherCapability, WasherSnapshot>
         implements LGThinQWMApiClientService {
 
     private static final LGThinQWMApiClientService instance;
     static {
-        instance = new LGThinQWMApiV1ClientServiceImpl(WasherDryerCapability.class, WasherDryerSnapshot.class);
+        instance = new LGThinQWMApiV1ClientServiceImpl(WasherCapability.class, WasherSnapshot.class);
     }
 
-    protected LGThinQWMApiV1ClientServiceImpl(Class<WasherDryerCapability> capabilityClass,
-            Class<WasherDryerSnapshot> snapshotClass) {
+    protected LGThinQWMApiV1ClientServiceImpl(Class<WasherCapability> capabilityClass,
+            Class<WasherSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
-    }
-
-    @Override
-    protected void beforeGetDataDevice(@NonNull String bridgeName, @NonNull String deviceId) {
-        // Nothing to do for V1 thinq
     }
 
     @Override
@@ -67,34 +59,8 @@ public class LGThinQWMApiV1ClientServiceImpl
 
     @Override
     @Nullable
-    public WasherDryerSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId)
+    public WasherSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId)
             throws LGThinqApiException {
         throw new UnsupportedOperationException("Method not supported in V1 API device.");
-    }
-
-    @Override
-    public void remoteStart(String bridgeName, WasherDryerCapability cap, String deviceId, Map<String, Object> data)
-            throws LGThinqApiException {
-        try {
-            RestResult result = sendControlCommands(bridgeName, deviceId, "", "Control", "OperationStart", "Start", "");
-            handleGenericErrorResult(result);
-        } catch (LGThinqApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new LGThinqApiException("Error sending remote start", e);
-        }
-    }
-
-    @Override
-    public void wakeUp(String bridgeName, String deviceId, Boolean wakeUp) throws LGThinqApiException {
-        try {
-
-            RestResult result = sendControlCommands(bridgeName, deviceId, "", "Control", "Operation", "", "WakeUp");
-            handleGenericErrorResult(result);
-        } catch (LGThinqApiException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new LGThinqApiException("Error sending remote start", e);
-        }
     }
 }
