@@ -19,8 +19,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.AbstractFridgeSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.FridgeCapability;
+import org.openhab.binding.lgthinq.lgservices.model.fridge.FridgeCapability;
+import org.openhab.binding.lgthinq.lgservices.model.fridge.FridgeSnapshot;
 
 /**
  * The {@link LGThinQFridgeApiV1ClientServiceImpl}
@@ -28,17 +28,16 @@ import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.FridgeCapabil
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQFridgeApiV1ClientServiceImpl
-        extends LGThinQAbstractApiV1ClientService<FridgeCapability, AbstractFridgeSnapshot>
-        implements LGThinQFridgeApiClientService {
+public class LGThinQFridgeApiV1ClientServiceImpl extends
+        LGThinQAbstractApiClientService<FridgeCapability, FridgeSnapshot> implements LGThinQFridgeApiClientService {
 
     private static final LGThinQFridgeApiClientService instance;
     static {
-        instance = new LGThinQFridgeApiV1ClientServiceImpl(FridgeCapability.class, AbstractFridgeSnapshot.class);
+        instance = new LGThinQFridgeApiV1ClientServiceImpl(FridgeCapability.class, FridgeSnapshot.class);
     }
 
     protected LGThinQFridgeApiV1ClientServiceImpl(Class<FridgeCapability> capabilityClass,
-            Class<AbstractFridgeSnapshot> snapshotClass) {
+            Class<FridgeSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
     }
 
@@ -65,7 +64,7 @@ public class LGThinQFridgeApiV1ClientServiceImpl
 
     @Override
     @Nullable
-    public AbstractFridgeSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId)
+    public FridgeSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId)
             throws LGThinqApiException {
         throw new UnsupportedOperationException("Method not supported in V1 API device.");
     }
