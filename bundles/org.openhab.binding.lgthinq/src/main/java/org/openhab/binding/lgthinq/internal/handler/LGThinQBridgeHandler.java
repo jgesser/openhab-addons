@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.lgthinq.internal.LGThinQConfiguration;
+import org.openhab.binding.lgthinq.internal.LGThinQBridgeConfiguration;
 import org.openhab.binding.lgthinq.internal.api.TokenManager;
 import org.openhab.binding.lgthinq.internal.discovery.LGThinqDiscoveryService;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
@@ -34,7 +34,10 @@ import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
 import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
-import org.openhab.core.thing.*;
+import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.ConfigStatusBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.types.Command;
@@ -63,7 +66,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
         }
     }
     private final Logger logger = LoggerFactory.getLogger(LGThinQBridgeHandler.class);
-    private LGThinQConfiguration lgthinqConfig;
+    private LGThinQBridgeConfiguration lgthinqConfig;
     private TokenManager tokenManager;
     private LGThinqDiscoveryService discoveryService;
     private LGThinQApiClientService lgApiClient;
@@ -84,7 +87,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
      */
     abstract class PollingRunnable implements Runnable {
         protected final String bridgeName;
-        protected LGThinQConfiguration lgthinqConfig;
+        protected LGThinQBridgeConfiguration lgthinqConfig;
 
         PollingRunnable(String bridgeName) {
             this.bridgeName = bridgeName;
@@ -275,7 +278,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
     @Override
     public void initialize() {
         logger.debug("Initializing LGThinq bridge handler.");
-        lgthinqConfig = getConfigAs(LGThinQConfiguration.class);
+        lgthinqConfig = getConfigAs(LGThinQBridgeConfiguration.class);
         lgDevicePollingRunnable.lgthinqConfig = lgthinqConfig;
 
         if (lgthinqConfig.username.isEmpty() || lgthinqConfig.password.isEmpty() || lgthinqConfig.language.isEmpty()

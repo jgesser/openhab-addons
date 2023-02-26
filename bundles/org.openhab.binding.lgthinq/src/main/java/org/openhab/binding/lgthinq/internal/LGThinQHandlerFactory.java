@@ -58,9 +58,9 @@ public class LGThinQHandlerFactory extends BaseThingHandlerFactory {
         } else if (THING_TYPE_BRIDGE.equals(thingTypeUID)) {
             return new LGThinQBridgeHandler((Bridge) thing);
         } else if (THING_TYPE_WASHING_MACHINE.equals(thingTypeUID) || THING_TYPE_WASHING_TOWER.equals(thingTypeUID)) {
-            return new LGThinQWasherHandler(thing, stateDescriptionProvider);
+            return new LGThinQWasherDryerHandler(thing, stateDescriptionProvider);
         } else if (THING_TYPE_DRYER.equals(thingTypeUID) || THING_TYPE_DRYER_TOWER.equals(thingTypeUID)) {
-            return new LGThinQDryerHandler(thing, stateDescriptionProvider);
+            return new LGThinQWasherDryerHandler(thing, stateDescriptionProvider);
         } else if (THING_TYPE_FRIDGE.equals(thingTypeUID)) {
             return new LGThinQFridgeHandler(thing, stateDescriptionProvider);
         }

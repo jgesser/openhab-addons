@@ -23,19 +23,23 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.LGThinQDeviceDynStateDescriptionProvider;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
-import org.openhab.binding.lgthinq.lgservices.*;
 import org.openhab.binding.lgthinq.lgservices.LGThinQACApiClientService;
 import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV2ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
 import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACTargetTmp;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
-import org.openhab.core.thing.*;
+import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.Channel;
+import org.openhab.core.thing.ChannelUID;
+import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.type.ChannelKind;
 import org.openhab.core.thing.type.ChannelTypeUID;
@@ -51,7 +55,7 @@ import org.slf4j.LoggerFactory;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<ACCapability, ACSnapshot> {
+public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<ACCapability, ACCanonicalSnapshot> {
 
     private final ChannelUID opModeChannelUID;
     private final ChannelUID fanSpeedChannelUID;
@@ -87,7 +91,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
-    protected void updateDeviceChannels(ACSnapshot shot) {
+    protected void updateDeviceChannels(ACCanonicalSnapshot shot) {
 
         updateState(CHANNEL_POWER_ID,
                 DevicePowerState.DV_POWER_ON.equals(shot.getPowerStatus()) ? OnOffType.ON : OnOffType.OFF);
@@ -119,7 +123,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
             }
 
         } catch (LGThinqApiException e) {
-            logger.error("Unexpected Error gettinf AC Capabilities", e);
+            logger.error("Unexpected Error gettinf ACCapability Capabilities", e);
         } catch (NumberFormatException e) {
             logger.warn("command value for capability is not numeric.", e);
         }
@@ -140,16 +144,15 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
         if (getThing().getChannel(energySavingChannelUID) == null && acCap.isEnergySavingAvailable()) {
             createDynSwitchChannel(CHANNEL_ENERGY_SAVING_ID, energySavingChannelUID);
         }
-        if (getThing().getChannel(fanSpeedChannelUID) == null && acCap.isFanSpeedAvailable()) {
+        if (getThing().getChannel(fanSpeedChannelUID) == null && !acCap.getFanSpeed().isEmpty()) {
             List<StateOption> options = new ArrayList<>();
-            acCap.getSupportedFanSpeed().forEach((v) -> options.add(
-                    new StateOption(emptyIfNull(acCap.getFanSpeed().get(v)), emptyIfNull(CAP_AC_FAN_SPEED.get(v)))));
+            acCap.getFanSpeed()
+                    .forEach((k, v) -> options.add(new StateOption(k, emptyIfNull(CAP_AC_FAN_SPEED.get(v)))));
             stateDescriptionProvider.setStateOptions(fanSpeedChannelUID, options);
         }
         if (isLinked(opModeChannelUID)) {
             List<StateOption> options = new ArrayList<>();
-            acCap.getSupportedOpMode().forEach((v) -> options
-                    .add(new StateOption(emptyIfNull(acCap.getOpMod().get(v)), emptyIfNull(CAP_AC_OP_MODE.get(v)))));
+            acCap.getOpMode().forEach((k, v) -> options.add(new StateOption(k, emptyIfNull(CAP_AC_OP_MODE.get(v)))));
             stateDescriptionProvider.setStateOptions(opModeChannelUID, options);
         }
     }
@@ -167,7 +170,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
-    public LGThinQApiClientService<ACCapability, ACSnapshot> getLgThinQAPIClientService() {
+    public LGThinQApiClientService<ACCapability, ACCanonicalSnapshot> getLgThinQAPIClientService() {
         return lgThinqACApiClientService;
     }
 

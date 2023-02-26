@@ -12,10 +12,11 @@
  */
 package org.openhab.binding.lgthinq.lgservices;
 
-import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
+import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.V1_CONTROL_OP;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 
 import javax.ws.rs.core.UriBuilder;
 
@@ -27,9 +28,9 @@ import org.openhab.binding.lgthinq.internal.api.RestUtils;
 import org.openhab.binding.lgthinq.internal.api.TokenResult;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACTargetTmp;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,22 +40,23 @@ import org.slf4j.LoggerFactory;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQACApiV1ClientServiceImpl extends LGThinQAbstractApiV1ClientService<ACCapability, ACSnapshot>
-        implements LGThinQACApiClientService {
+public class LGThinQACApiV1ClientServiceImpl extends
+        LGThinQAbstractApiV1ClientService<ACCapability, ACCanonicalSnapshot> implements LGThinQACApiClientService {
     private static final LGThinQACApiClientService instance;
     private static final Logger logger = LoggerFactory.getLogger(LGThinQACApiV1ClientServiceImpl.class);
 
     static {
-        instance = new LGThinQACApiV1ClientServiceImpl(ACCapability.class, ACSnapshot.class);
+        instance = new LGThinQACApiV1ClientServiceImpl(ACCapability.class, ACCanonicalSnapshot.class);
     }
 
-    protected LGThinQACApiV1ClientServiceImpl(Class<ACCapability> capabilityClass, Class<ACSnapshot> snapshotClass) {
+    protected LGThinQACApiV1ClientServiceImpl(Class<ACCapability> capabilityClass,
+            Class<ACCanonicalSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
     }
 
     @Override
     protected void beforeGetDataDevice(@NonNull String bridgeName, @NonNull String deviceId) {
-        // Nothing to do on V1 AC here
+        // Nothing to do on V1 ACCapability here
     }
 
     public static LGThinQACApiClientService getInstance() {
@@ -71,7 +73,8 @@ public class LGThinQACApiV1ClientServiceImpl extends LGThinQAbstractApiV1ClientS
      */
     @Override
     @Nullable
-    public ACSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId) throws LGThinqApiException {
+    public ACCanonicalSnapshot getDeviceData(@NonNull String bridgeName, @NonNull String deviceId)
+            throws LGThinqApiException {
         throw new UnsupportedOperationException("Method not supported in V1 API device.");
     }
 

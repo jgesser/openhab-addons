@@ -18,8 +18,8 @@ import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.fridge.FridgeCapability;
-import org.openhab.binding.lgthinq.lgservices.model.fridge.FridgeSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.AbstractFridgeSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.fridge.FridgeCapability;
 
 /**
  * The {@link LGThinQFridgeApiV2ClientServiceImpl}
@@ -27,16 +27,17 @@ import org.openhab.binding.lgthinq.lgservices.model.fridge.FridgeSnapshot;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQFridgeApiV2ClientServiceImpl extends
-        LGThinQAbstractApiV2ClientService<FridgeCapability, FridgeSnapshot> implements LGThinQFridgeApiClientService {
+public class LGThinQFridgeApiV2ClientServiceImpl
+        extends LGThinQAbstractApiV2ClientService<FridgeCapability, AbstractFridgeSnapshot>
+        implements LGThinQFridgeApiClientService {
 
     private static final LGThinQFridgeApiClientService instance;
     static {
-        instance = new LGThinQFridgeApiV2ClientServiceImpl(FridgeCapability.class, FridgeSnapshot.class);
+        instance = new LGThinQFridgeApiV2ClientServiceImpl(FridgeCapability.class, AbstractFridgeSnapshot.class);
     }
 
     protected LGThinQFridgeApiV2ClientServiceImpl(Class<FridgeCapability> capabilityClass,
-            Class<FridgeSnapshot> snapshotClass) {
+            Class<AbstractFridgeSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
     }
 

@@ -27,14 +27,15 @@ import org.openhab.binding.lgthinq.internal.api.RestUtils;
 import org.openhab.binding.lgthinq.internal.api.TokenResult;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqDeviceV1OfflineException;
-import org.openhab.binding.lgthinq.lgservices.model.Capability;
+import org.openhab.binding.lgthinq.lgservices.model.AbstractSnapshotDefinition;
+import org.openhab.binding.lgthinq.lgservices.model.CapabilityDefinition;
 import org.openhab.binding.lgthinq.lgservices.model.ResultCodes;
-import org.openhab.binding.lgthinq.lgservices.model.Snapshot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * The {@link LGThinQAbstractApiV1ClientService}
@@ -42,7 +43,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public abstract class LGThinQAbstractApiV1ClientService<C extends Capability, S extends Snapshot>
+public abstract class LGThinQAbstractApiV1ClientService<C extends CapabilityDefinition, S extends AbstractSnapshotDefinition>
         extends LGThinQAbstractApiClientService<C, S> {
     private static final Logger logger = LoggerFactory.getLogger(LGThinQAbstractApiV1ClientService.class);
 
@@ -53,6 +54,12 @@ public abstract class LGThinQAbstractApiV1ClientService<C extends Capability, S 
     @Override
     protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath, String controlKey,
             String command, String keyName, String value) throws Exception {
+        return sendControlCommands(bridgeName, deviceId, controlPath, controlKey, command, keyName, value, null);
+    }
+
+    protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath, String controlKey,
+            String command, @Nullable String keyName, @Nullable String value, @Nullable ObjectNode extraNode)
+            throws Exception {
         TokenResult token = tokenManager.getValidRegisteredToken(bridgeName);
         UriBuilder builder = UriBuilder.fromUri(token.getGatewayInfo().getApiRootV1()).path(V1_CONTROL_OP);
         Map<String, String> headers = getCommonHeaders(token.getGatewayInfo().getLanguage(),

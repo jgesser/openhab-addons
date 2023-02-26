@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openhab.binding.lgthinq.internal.LGThinQBindingConstants;
-import org.openhab.binding.lgthinq.internal.LGThinQConfiguration;
+import org.openhab.binding.lgthinq.internal.LGThinQBridgeConfiguration;
 import org.openhab.binding.lgthinq.internal.api.RestUtils;
 import org.openhab.binding.lgthinq.internal.api.TokenManager;
 import org.openhab.binding.lgthinq.internal.handler.LGThinQBridgeHandler;
@@ -116,7 +116,7 @@ class LGThinqBridgeTests {
         LGThinQBindingConstants.BASE_CAP_CONFIG_DATA_FILE = tempDir + File.separator + "thinq-cap.json";
         LGThinQBridgeHandler b = new LGThinQBridgeHandler(fakeThing);
         LGThinQBridgeHandler spyBridge = spy(b);
-        doReturn(new LGThinQConfiguration(fakeUserName, fakePassword, fakeCountry, fakeLanguage, 60,
+        doReturn(new LGThinQBridgeConfiguration(fakeUserName, fakePassword, fakeCountry, fakeLanguage, 60,
                 "http://localhost:8880")).when(spyBridge).getConfigAs(any(Class.class));
         spyBridge.initialize();
         LGThinQApiClientService service1 = LGThinQACApiV1ClientServiceImpl.getInstance();
