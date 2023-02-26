@@ -35,7 +35,7 @@ public class LGThinQBindingConstants {
     public static final ThingTypeUID THING_TYPE_AIR_CONDITIONER = new ThingTypeUID(BINDING_ID,
             "" + DeviceTypes.AIR_CONDITIONER.deviceTypeId());
     public static final ThingTypeUID THING_TYPE_WASHING_MACHINE = new ThingTypeUID(BINDING_ID,
-            "" + DeviceTypes.WASHING_MACHINE.deviceTypeId());
+            "" + DeviceTypes.WASHERDRYER_MACHINE.deviceTypeId());
     public static final ThingTypeUID THING_TYPE_WASHING_TOWER = new ThingTypeUID(BINDING_ID,
             "" + DeviceTypes.WASHING_TOWER.deviceTypeId());
     public static final ThingTypeUID THING_TYPE_DRYER = new ThingTypeUID(BINDING_ID,
@@ -191,8 +191,13 @@ public class LGThinQBindingConstants {
     public static final String WM_CHANNEL_TEMP_LEVEL_ID = "temperature-level";
     public static final String WM_CHANNEL_DOOR_LOCK_ID = "door-lock";
 
-    public static final String WM_CHANNEL_REMOTE_START_ID = "remote-start";
-    public static final String WM_CHANNEL_STAND_BY_ID = "stand-by";
+    public static final String WM_CHANNEL_RINSE_ID = "rinse";
+
+    public static final String WM_CHANNEL_SPIN_ID = "spin";
+
+    public static final String WM_CHANNEL_LAUNCH_REMOTE_START_ID = "launch-remote-start";
+    public static final String WM_CHANNEL_REMOTE_START_ID = "washer-remote-start";
+    public static final String WM_CHANNEL_STAND_BY_ID = "washer-stand-by";
     public static final String WM_CHANNEL_REMAIN_TIME_ID = "remain-time";
     public static final String WM_CHANNEL_DELAY_TIME_ID = "delay-time";
 
@@ -222,6 +227,23 @@ public class LGThinQBindingConstants {
             Map.entry("@WM_TITAN2_OPTION_TEMP_40_W", "40"), Map.entry("@WM_TITAN2_OPTION_TEMP_50_W", "50"),
             Map.entry("@WM_TITAN2_OPTION_TEMP_60_W", "60"), Map.entry("@WM_TITAN2_OPTION_TEMP_95_W", "95"));
 
+    public static final Map<String, String> CAP_WP_SPIN = Map.ofEntries(
+            Map.entry("@WM_TERM_NO_SELECT_W", "Not Selected"), Map.entry("@M_TITAN2_OPTION_SPIN_NO_SPIN_W", "No Spin"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_400_W", "400"), Map.entry("@WM_TITAN2_OPTION_SPIN_600_W", "600"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_700_W", "700"), Map.entry("@WM_TITAN2_OPTION_SPIN_800_W", "800"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_900_W", "900"), Map.entry("@WM_TITAN2_OPTION_SPIN_1000_W", "1000"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_1100_W", "1100"), Map.entry("@WM_TITAN2_OPTION_SPIN_1200_W", "1200"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_1400_W", "1400"), Map.entry("@WM_TITAN2_OPTION_SPIN_1600_W", "1600"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_MAX_W", "Max Spin"));
+
+    public static final Map<String, String> CAP_WP_RINSE = Map.ofEntries(
+            Map.entry("@WM_TERM_NO_SELECT_W", "Not Selected"), Map.entry("@WM_TITAN2_OPTION_RINSE_NORMAL_W", "Normal"),
+            Map.entry("@WM_TITAN2_OPTION_RINSE_RINSE+_W", "Plus"),
+            Map.entry("@WM_TITAN2_OPTION_RINSE_RINSE++_W", "Plus +"),
+            Map.entry("@WM_TITAN2_OPTION_RINSE_NORMALHOLD_W", "Normal Hold"),
+            Map.entry("@WM_TITAN2_OPTION_SPIN_800_W", "800"),
+            Map.entry("@WM_TITAN2_OPTION_RINSE_RINSE+HOLD_W", "Plus Hold"));
+    public static final String WM_COMMAND_REMOTE_START_V2 = "WMStart";
     // ==============================================================================
 
     // ======================== DRYER CONSTANTS ============================

@@ -34,7 +34,8 @@ public enum ResultCodes {
     NOT_SUPPORTED_CONTROL("Commnad/Control/Service is not supported", "0005", "0012", "8001"),
     CONTROL_ERROR("Error in device control", "0105"),
     LG_SERVER_ERROR("LG Server Error", "8101", "8102", "8103", "8104", "8105", "8106", "8107", "9003", "9004", "9005",
-            "9000", "8900", "9999", "0107"),
+            "9000", "8900", "0107"),
+    PAYLOAD_ERROR("Malformed or Wrong Payload", "9999"),
     DUPLICATED_DATA("Duplicated Data/Alias", "0008", "0013"),
     ACCESS_DENIED("Access Denied. Verify your account/password in LG Account Portal.", "9006", "0011", "0113"),
     NOT_SUPPORTED_COUNTRY("Country not supported.", "8000"),
@@ -149,8 +150,9 @@ public enum ResultCodes {
             case "9003":
             case "9004":
             case "9005":
-            case "9999":
                 return LG_SERVER_ERROR;
+            case "9999":
+                return PAYLOAD_ERROR;
             case "9006":
             case "0011":
             case "0113":

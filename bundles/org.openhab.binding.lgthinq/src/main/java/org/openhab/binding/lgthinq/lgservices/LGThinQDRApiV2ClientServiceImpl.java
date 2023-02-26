@@ -19,8 +19,8 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.lgthinq.internal.api.RestResult;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.washerdryer.DryerCapability;
-import org.openhab.binding.lgthinq.lgservices.model.washerdryer.DryerSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerCapability;
+import org.openhab.binding.lgthinq.lgservices.model.devices.washerdryer.WasherDryerSnapshot;
 
 /**
  * The {@link LGThinQDRApiV2ClientServiceImpl}
@@ -28,16 +28,17 @@ import org.openhab.binding.lgthinq.lgservices.model.washerdryer.DryerSnapshot;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQDRApiV2ClientServiceImpl extends LGThinQAbstractApiV2ClientService<DryerCapability, DryerSnapshot>
+public class LGThinQDRApiV2ClientServiceImpl
+        extends LGThinQAbstractApiV2ClientService<WasherDryerCapability, WasherDryerSnapshot>
         implements LGThinQDRApiClientService {
 
     private static final LGThinQDRApiV2ClientServiceImpl instance;
     static {
-        instance = new LGThinQDRApiV2ClientServiceImpl(DryerCapability.class, DryerSnapshot.class);
+        instance = new LGThinQDRApiV2ClientServiceImpl(WasherDryerCapability.class, WasherDryerSnapshot.class);
     }
 
-    protected LGThinQDRApiV2ClientServiceImpl(Class<DryerCapability> capabilityClass,
-            Class<DryerSnapshot> snapshotClass) {
+    protected LGThinQDRApiV2ClientServiceImpl(Class<WasherDryerCapability> capabilityClass,
+            Class<WasherDryerSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
     }
 

@@ -29,10 +29,7 @@ import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
 import org.openhab.binding.lgthinq.internal.handler.LGThinQBridgeHandler;
 import org.openhab.binding.lgthinq.lgservices.LGThinQAbstractApiClientService;
 import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
-import org.openhab.binding.lgthinq.lgservices.model.Capability;
-import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
-import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
-import org.openhab.binding.lgthinq.lgservices.model.Snapshot;
+import org.openhab.binding.lgthinq.lgservices.model.*;
 import org.openhab.core.config.discovery.AbstractDiscoveryService;
 import org.openhab.core.config.discovery.DiscoveryResult;
 import org.openhab.core.config.discovery.DiscoveryResultBuilder;
@@ -43,6 +40,8 @@ import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * The {@link LGThinqDiscoveryService}
@@ -55,11 +54,12 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
     private final Logger logger = LoggerFactory.getLogger(LGThinqDiscoveryService.class);
     private @Nullable LGThinQBridgeHandler bridgeHandler;
     private @Nullable ThingUID bridgeHandlerUID;
-    private final LGThinQApiClientService<Capability, Snapshot> lgApiClientService;
+    private final LGThinQApiClientService<AbstractJsonCapability, AbstractSnapshotDefinition> lgApiClientService;
 
     public LGThinqDiscoveryService() {
         super(SUPPORTED_THING_TYPES, SEARCH_TIME);
-        lgApiClientService = new LGThinQAbstractApiClientService<>(Capability.class, Snapshot.class) {
+        lgApiClientService = new LGThinQAbstractApiClientService<>(AbstractJsonCapability.class,
+                AbstractSnapshotDefinition.class) {
             @Override
             protected void beforeGetDataDevice(@NonNull String bridgeName, @NonNull String deviceId)
                     throws LGThinqApiException {
@@ -74,6 +74,13 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
             @Override
             protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
                     String controlKey, String command, String keyName, String value) throws Exception {
+                throw new UnsupportedOperationException("Not to use");
+            }
+
+            @Override
+            protected RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
+                    String controlKey, String command, @Nullable String keyName, @Nullable String value,
+                    @Nullable ObjectNode extraNode) throws Exception {
                 throw new UnsupportedOperationException("Not to use");
             }
 
@@ -175,7 +182,7 @@ public class LGThinqDiscoveryService extends AbstractDiscoveryService implements
                 return THING_TYPE_AIR_CONDITIONER;
             case HEAT_PUMP:
                 return THING_TYPE_HEAT_PUMP;
-            case WASHING_MACHINE:
+            case WASHERDRYER_MACHINE:
                 return THING_TYPE_WASHING_MACHINE;
             case WASHING_TOWER:
                 return THING_TYPE_WASHING_TOWER;

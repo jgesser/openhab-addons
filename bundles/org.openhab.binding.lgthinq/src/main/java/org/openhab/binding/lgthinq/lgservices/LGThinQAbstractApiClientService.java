@@ -39,7 +39,9 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
  * The {@link LGThinQACApiV1ClientServiceImpl}
@@ -47,7 +49,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public abstract class LGThinQAbstractApiClientService<C extends Capability, S extends Snapshot>
+public abstract class LGThinQAbstractApiClientService<C extends CapabilityDefinition, S extends AbstractSnapshotDefinition>
         implements LGThinQApiClientService<C, S> {
     private static final Logger logger = LoggerFactory.getLogger(LGThinQAbstractApiClientService.class);
     protected final ObjectMapper objectMapper = new ObjectMapper();
@@ -246,11 +248,12 @@ public abstract class LGThinQAbstractApiClientService<C extends Capability, S ex
     public C getCapability(String deviceId, String uri, boolean forceRecreate) throws LGThinqApiException {
         try {
             File regFile = loadDeviceCapability(deviceId, uri, forceRecreate);
-            Map<String, Object> mapper = objectMapper.readValue(regFile, new TypeReference<>() {
-            });
-            return CapabilityFactory.getInstance().create(mapper, capabilityClass);
+            JsonNode rootNode = objectMapper.readTree(regFile);
+            return CapabilityFactory.getInstance().create(rootNode, capabilityClass);
         } catch (IOException e) {
             throw new LGThinqApiException("Error reading IO interface", e);
+        } catch (LGThinqException e) {
+            throw new LGThinqApiException("Error parsing capability registry", e);
         }
     }
 
@@ -424,6 +427,10 @@ public abstract class LGThinQAbstractApiClientService<C extends Capability, S ex
 
     protected abstract RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
             String controlKey, String command, String keyName, String value) throws Exception;
+
+    protected abstract RestResult sendControlCommands(String bridgeName, String deviceId, String controlPath,
+            String controlKey, String command, @Nullable String keyName, @Nullable String value,
+            @Nullable ObjectNode extraNode) throws Exception;
 
     protected abstract Map<String, Object> handleGenericErrorResult(@Nullable RestResult resp)
             throws LGThinqApiException;

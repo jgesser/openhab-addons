@@ -18,10 +18,10 @@ package org.openhab.binding.lgthinq.lgservices.model;
  * @author Nemer Daud - Initial contribution
  */
 public enum DeviceTypes {
-    AIR_CONDITIONER(401, "AC", ""),
+    AIR_CONDITIONER(401, "ACCapability", ""),
 
-    HEAT_PUMP(401, "AC", "AWHP"),
-    WASHING_MACHINE(201, "WM", ""),
+    HEAT_PUMP(401, "ACCapability", "AWHP"),
+    WASHERDRYER_MACHINE(201, "WM", ""),
 
     WASHING_TOWER(221, "WM", ""),
     DRYER(202, "DR", "Dryer"),
@@ -53,7 +53,7 @@ public enum DeviceTypes {
                 }
                 return AIR_CONDITIONER;
             case 201:
-                return WASHING_MACHINE;
+                return WASHERDRYER_MACHINE;
             case 221:
                 return WASHING_TOWER;
             case 202:
@@ -79,7 +79,7 @@ public enum DeviceTypes {
                 if ("Dryer".equals(modelType)) {
                     return DRYER;
                 } else {
-                    return WASHING_MACHINE;
+                    return WASHERDRYER_MACHINE;
                 }
             case "REF":
                 return REFRIGERATOR;

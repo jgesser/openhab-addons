@@ -15,28 +15,32 @@ package org.openhab.binding.lgthinq.internal.handler;
 import static org.openhab.binding.lgthinq.internal.LGThinQBindingConstants.*;
 
 import java.lang.reflect.ParameterizedType;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.net.URI;
+import java.util.*;
 import java.util.concurrent.*;
 
 import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.LGThinQDeviceDynStateDescriptionProvider;
+import org.openhab.binding.lgthinq.internal.ThinqChannelTypeProvider;
 import org.openhab.binding.lgthinq.internal.errors.*;
 import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
-import org.openhab.binding.lgthinq.lgservices.model.Capability;
+import org.openhab.binding.lgthinq.lgservices.model.CapabilityDefinition;
 import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
-import org.openhab.binding.lgthinq.lgservices.model.Snapshot;
+import org.openhab.binding.lgthinq.lgservices.model.SnapshotDefinition;
 import org.openhab.core.thing.*;
 import org.openhab.core.thing.binding.BaseThingHandler;
+import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.thing.binding.builder.ChannelBuilder;
 import org.openhab.core.thing.type.ChannelKind;
+import org.openhab.core.thing.type.ChannelType;
+import org.openhab.core.thing.type.ChannelTypeBuilder;
 import org.openhab.core.thing.type.ChannelTypeUID;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
+import org.openhab.core.types.StateDescriptionFragmentBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,7 +50,8 @@ import org.slf4j.LoggerFactory;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S extends Snapshot> extends BaseThingHandler {
+public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinition, S extends SnapshotDefinition>
+        extends BaseThingHandler {
     private final Logger logger = LoggerFactory.getLogger(LGThinQAbstractDeviceHandler.class);
     protected final String lgPlatformType;
     private final Class<S> snapshotClass;
@@ -68,6 +73,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S exten
             ThingStatusDetail.CONFIGURATION_ERROR);
 
     protected final LGThinQDeviceDynStateDescriptionProvider stateDescriptionProvider;
+    protected ThinqChannelTypeProvider thinqChannelProvider = new ThinqChannelTypeProvider(); // Dummy inicialization
 
     public LGThinQAbstractDeviceHandler(Thing thing,
             LGThinQDeviceDynStateDescriptionProvider stateDescriptionProvider) {
@@ -76,6 +82,15 @@ public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S exten
         lgPlatformType = "" + thing.getProperties().get(PLATFORM_TYPE);
         this.snapshotClass = (Class<S>) ((ParameterizedType) getClass().getGenericSuperclass())
                 .getActualTypeArguments()[1];
+    }
+
+    public void setChannelTypeProvider(ThinqChannelTypeProvider provider) {
+        this.thinqChannelProvider = provider;
+    }
+
+    @Override
+    public Collection<Class<? extends ThingHandlerService>> getServices() {
+        return Collections.singleton(ThinqChannelTypeProvider.class);
     }
 
     protected static class AsyncCommandParams {
@@ -90,7 +105,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S exten
 
     /**
      * Return empty string if null argument is passed
-     * 
+     *
      * @param value value to test
      * @return empty string if null argument is passed
      */
@@ -100,7 +115,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S exten
 
     /**
      * Return the key informed if there is no correpondent value in map for that key.
-     * 
+     *
      * @param map map with key/value
      * @param key key to search for a value into map
      * @return return value related to that key in the map, or the own key if there is no correspondent.
@@ -434,5 +449,17 @@ public abstract class LGThinQAbstractDeviceHandler<C extends Capability, S exten
             Channel channel = builder.withKind(ChannelKind.STATE).withAcceptedItemType(itemType).build();
             updateThing(editThing().withChannel(channel).build());
         }
+    }
+
+    protected ChannelTypeUID createDynTypeChannel(ThinqChannelTypeProvider channelTypeProvider,
+            final String channelTypeId, final String channelLabel, final String itemType, final Boolean readOnly) {
+        final StateDescriptionFragmentBuilder sdb = StateDescriptionFragmentBuilder.create();
+        final ChannelTypeUID channelTypeUID = new ChannelTypeUID(BINDING_ID, channelTypeId + "-Type");
+        String normLabel = channelLabel.replace(" ", "");
+        final ChannelType channelType = ChannelTypeBuilder.state(channelTypeUID, normLabel, itemType)
+                .withStateDescriptionFragment(sdb.withReadOnly(readOnly).build())
+                .withConfigDescriptionURI(URI.create(String.format("channel-type:lgthinq:%s-type", normLabel))).build();
+        channelTypeProvider.addChannelType(channelType);
+        return channelTypeUID;
     }
 }

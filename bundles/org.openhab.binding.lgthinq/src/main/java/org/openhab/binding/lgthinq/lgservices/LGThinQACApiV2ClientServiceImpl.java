@@ -24,9 +24,9 @@ import org.openhab.binding.lgthinq.internal.errors.LGThinqDeviceV1OfflineExcepti
 import org.openhab.binding.lgthinq.internal.errors.RefreshTokenException;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
 import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACCapability;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACSnapshot;
-import org.openhab.binding.lgthinq.lgservices.model.ac.ACTargetTmp;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapshot;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
+import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,16 +36,17 @@ import org.slf4j.LoggerFactory;
  * @author Nemer Daud - Initial contribution
  */
 @NonNullByDefault
-public class LGThinQACApiV2ClientServiceImpl extends LGThinQAbstractApiV2ClientService<ACCapability, ACSnapshot>
-        implements LGThinQACApiClientService {
+public class LGThinQACApiV2ClientServiceImpl extends
+        LGThinQAbstractApiV2ClientService<ACCapability, ACCanonicalSnapshot> implements LGThinQACApiClientService {
     private static final LGThinQACApiClientService instance;
     private static final Logger logger = LoggerFactory.getLogger(LGThinQACApiV2ClientServiceImpl.class);
 
     static {
-        instance = new LGThinQACApiV2ClientServiceImpl(ACCapability.class, ACSnapshot.class);
+        instance = new LGThinQACApiV2ClientServiceImpl(ACCapability.class, ACCanonicalSnapshot.class);
     }
 
-    protected LGThinQACApiV2ClientServiceImpl(Class<ACCapability> capabilityClass, Class<ACSnapshot> snapshotClass) {
+    protected LGThinQACApiV2ClientServiceImpl(Class<ACCapability> capabilityClass,
+            Class<ACCanonicalSnapshot> snapshotClass) {
         super(capabilityClass, snapshotClass);
     }
 
@@ -152,7 +153,7 @@ public class LGThinQACApiV2ClientServiceImpl extends LGThinQAbstractApiV2ClientS
     }
 
     @Override
-    public @Nullable ACSnapshot getMonitorData(@NonNull String bridgeName, @NonNull String deviceId,
+    public @Nullable ACCanonicalSnapshot getMonitorData(@NonNull String bridgeName, @NonNull String deviceId,
             @NonNull String workId, DeviceTypes deviceType, @NonNull ACCapability deviceCapability)
             throws LGThinqApiException, LGThinqDeviceV1MonitorExpiredException, IOException {
         throw new UnsupportedOperationException("Not supported in V2 API.");
