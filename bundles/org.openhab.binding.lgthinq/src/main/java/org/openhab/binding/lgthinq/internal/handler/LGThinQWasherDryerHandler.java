@@ -23,9 +23,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.LGThinQDeviceDynStateDescriptionProvider;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
-import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
-import org.openhab.binding.lgthinq.lgservices.LGThinQWMApiClientService;
-import org.openhab.binding.lgthinq.lgservices.LGThinQWMApiV2ClientServiceImpl;
+import org.openhab.binding.lgthinq.lgservices.*;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
 import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
 import org.openhab.binding.lgthinq.lgservices.model.FeatureDataType;
@@ -87,7 +85,9 @@ public class LGThinQWasherDryerHandler
     public LGThinQWasherDryerHandler(Thing thing, LGThinQDeviceDynStateDescriptionProvider stateDescriptionProvider) {
         super(thing, stateDescriptionProvider);
         this.stateDescriptionProvider = stateDescriptionProvider;
-        lgThinqWMApiClientService = LGThinQWMApiV2ClientServiceImpl.getInstance();
+        lgThinqWMApiClientService = lgPlatformType.equals(PLATFORM_TYPE_V1)
+                ? LGThinQWMApiV1ClientServiceImpl.getInstance()
+                : LGThinQWMApiV2ClientServiceImpl.getInstance();
         courseChannelUUID = new ChannelUID(getThing().getUID(), WM_CHANNEL_COURSE_ID);
         remoteStartChannelUUID = new ChannelUID(getThing().getUID(), WM_CHANNEL_REMOTE_START_ID);
         standbyChannelUUID = new ChannelUID(getThing().getUID(), WM_CHANNEL_STAND_BY_ID);

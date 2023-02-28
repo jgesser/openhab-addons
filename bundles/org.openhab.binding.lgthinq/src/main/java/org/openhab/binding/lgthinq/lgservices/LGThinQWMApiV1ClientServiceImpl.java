@@ -88,8 +88,8 @@ public class LGThinQWMApiV1ClientServiceImpl
     @Override
     public void wakeUp(String bridgeName, String deviceId, Boolean wakeUp) throws LGThinqApiException {
         try {
-            RestResult result = sendControlCommands(bridgeName, deviceId, "control-sync", "WMWakeup", "WMWakeup", "",
-                    "");
+
+            RestResult result = sendControlCommands(bridgeName, deviceId, "", "Control", "Operation", "", "WakeUp");
             handleGenericErrorResult(result);
         } catch (LGThinqApiException e) {
             throw e;
