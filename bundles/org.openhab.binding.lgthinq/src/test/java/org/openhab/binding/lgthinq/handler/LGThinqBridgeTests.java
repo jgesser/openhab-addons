@@ -84,6 +84,18 @@ class LGThinqBridgeTests {
 
     @Test
     public void testDiscoveryACThings() {
+        setupAuthenticationMock();
+        LGThinQApiClientService service1 = LGThinQACApiV1ClientServiceImpl.getInstance();
+        LGThinQApiClientService service2 = LGThinQACApiV2ClientServiceImpl.getInstance();
+        try {
+            List<LGDevice> devices = service2.listAccountDevices("bridgeTest");
+            assertEquals(devices.size(), 2);
+        } catch (Exception e) {
+            logger.error("Error testing facade", e);
+        }
+    }
+
+    private void setupAuthenticationMock() {
         stubFor(get(GATEWAY_SERVICE_PATH_V2).willReturn(ok(gtwResponse)));
         String preLoginPwd = RestUtils.getPreLoginEncPwd(fakePassword);
         stubFor(post("/spx" + PRE_LOGIN_PATH).withRequestBody(containing("user_auth2=" + preLoginPwd))
@@ -91,7 +103,9 @@ class LGThinqBridgeTests {
         URI uri = UriBuilder.fromUri("http://localhost:8880").path("spx" + OAUTH_SEARCH_KEY_PATH)
                 .queryParam("key_name", "OAUTH_SECRETKEY").queryParam("sever_type", "OP").build();
         stubFor(get(String.format("%s?%s", uri.getPath(), uri.getQuery())).willReturn(ok(oauthTokenSearchKeyReturned)));
-        stubFor(post(V2_SESSION_LOGIN_PATH + fakeUserName).withRequestBody(containing("user_auth2=SOME_DUMMY_ENC_PWD"))
+        String fakeUserNameEncoded = URLEncoder.encode(fakeUserName, StandardCharsets.UTF_8);
+        stubFor(post(V2_SESSION_LOGIN_PATH + fakeUserNameEncoded)
+                .withRequestBody(containing("user_auth2=SOME_DUMMY_ENC_PWD"))
                 .withHeader("X-Signature", equalTo("SOME_DUMMY_SIGNATURE"))
                 .withHeader("X-Timestamp", equalTo("1643236928")).willReturn(ok(loginSessionResponse)));
         stubFor(get(V2_USER_INFO).willReturn(ok(userInfoReturned)));
@@ -119,16 +133,12 @@ class LGThinqBridgeTests {
         doReturn(new LGThinQBridgeConfiguration(fakeUserName, fakePassword, fakeCountry, fakeLanguage, 60,
                 "http://localhost:8880")).when(spyBridge).getConfigAs(any(Class.class));
         spyBridge.initialize();
-        LGThinQApiClientService service1 = LGThinQACApiV1ClientServiceImpl.getInstance();
-        LGThinQApiClientService service2 = LGThinQACApiV2ClientServiceImpl.getInstance();
         TokenManager tokenManager = TokenManager.getInstance();
         try {
             if (!tokenManager.isOauthTokenRegistered(fakeBridgeName)) {
-                tokenManager.oauthFirstRegistration(fakeBridgeName, fakeLanguage, fakeCountry, fakeUserName,
+                tokenManager.oauthFirstRegistration(fakeBridgeName, fakeLanguage, fakeCountry, fakeUserNameEncoded,
                         fakePassword, "");
             }
-            List<LGDevice> devices = service2.listAccountDevices("bridgeTest");
-            assertEquals(devices.size(), 2);
         } catch (Exception e) {
             logger.error("Error testing facade", e);
         }
@@ -193,4 +203,11 @@ class LGThinqBridgeTests {
             logger.error("Error testing facade", e);
         }
     }
+
+    // @Test
+    // void TestWakeUp() throws LGThinqApiException {
+    // setupAuthenticationMock();
+    // LGThinQWMApiClientService service = LGThinQWMApiV1ClientServiceImpl.getInstance();
+    // service.wakeUp("xxx", "yyyy", true);
+    // }
 }

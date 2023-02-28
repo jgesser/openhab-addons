@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /**
@@ -65,12 +66,26 @@ public abstract class LGThinQAbstractApiV1ClientService<C extends CapabilityDefi
         Map<String, String> headers = getCommonHeaders(token.getGatewayInfo().getLanguage(),
                 token.getGatewayInfo().getCountry(), token.getAccessToken(), token.getUserInfo().getUserNumber());
 
-        String payload = String.format(
-                "{\n" + "   \"lgedmRoot\":{\n" + "      \"cmd\": \"%s\"," + "      \"cmdOpt\": \"%s\","
-                        + "      \"value\": {\"%s\": \"%s\"}," + "      \"deviceId\": \"%s\","
-                        + "      \"workId\": \"%s\"," + "      \"data\": \"\"" + "   }\n" + "}",
-                controlKey, command, keyName, value, deviceId, UUID.randomUUID());
-        return RestUtils.postCall(builder.build().toURL().toString(), headers, payload);
+        ObjectNode payloadNode = JsonNodeFactory.instance.objectNode();
+        ObjectNode rootNode = payloadNode.putObject("lgedmRoot");
+        rootNode.put("cmd", controlKey).put("cmdOpt", command);
+        if (keyName == null || keyName.isEmpty()) {
+            // value is a simple text
+            rootNode.put("value", value);
+        } else {
+            rootNode.putObject("value").put(keyName, value);
+        }
+        rootNode.put("deviceId", deviceId);
+        rootNode.put("workId", UUID.randomUUID().toString());
+        // String payload = String.format(
+        // "{\n" + " \"lgedmRoot\":{\n" + " \"cmd\": \"%s\"," + " \"cmdOpt\": \"%s\","
+        // + " \"value\": {\"%s\": \"%s\"}," + " \"deviceId\": \"%s\","
+        // + " \"workId\": \"%s\"," + " \"data\": \"\"" + " }\n" + "}",
+        // controlKey, command, keyName, value, deviceId, UUID.randomUUID());
+        if (extraNode != null) {
+            rootNode.setAll(extraNode);
+        }
+        return RestUtils.postCall(builder.build().toURL().toString(), headers, payloadNode.toPrettyString());
     }
 
     @Override
