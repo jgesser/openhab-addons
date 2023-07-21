@@ -354,7 +354,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
                             getDeviceId(), bridgeId);
                 }
             }
-            // force start state pooling if the device is ONLINE
+            // force start state polling if the device is ONLINE
             resetExtraInfoChannels();
             startThingStatePolling();
         }
@@ -486,7 +486,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         } catch (Throwable e) {
             getLogger().error(
-                    "System error in pooling thread (UpdateDevice) for device {}/{}. Filtering to do not stop the thread",
+                    "System error in polling thread (UpdateDevice) for device {}/{}. Filtering to do not stop the thread",
                     getDeviceAlias(), getDeviceId(), e);
         }
     }
@@ -520,7 +520,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             }
         }
         
-        // restart thing state polling for the new poolingPeriod configuration
+        // restart thing state polling for the new polling Period configuration
         if (pollingPeriodOffSeconds != pollingPeriodOnSeconds) {
             stopThingStatePolling();
         }
@@ -709,7 +709,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
                 String channelUid = getSimpleChannelUID(params.channelUID);
                 if (CHANNEL_POWER_ID.equals(channelUid)) {
                     // if processed command come from POWER channel, then force updateDeviceChannels immediatly
-                    // this is importante to analise if the poolings need to be changed in time.
+                    // this is important to analise if the polling needs to be changed in time.
                     updateThingStateFromLG();
                 } else if (CHANNEL_EXTENDED_INFO_COLLECTOR_ID.equals(channelUid)) {
                     if (OnOffType.ON.equals(params.command)) {
