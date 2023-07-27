@@ -41,21 +41,19 @@
 				</description>
 				<default>10</default>
 			</parameter>
-			<parameter name="polling-extra-info-period-seconds" type="integer" min="10" required="true"
-				groupName="Settings">
-				<label>Polling period in seconds for Extra Info</label>
+			<parameter name="polling-extra-info-period-poweron-seconds" type="integer" groupName="Settings">
+				<label>Polling Extra Info in seconds when device is on (0 disabled)</label>
 				<description>Seconds to wait to the next polling for Device's Extra Info (energy consumption,
-					remaining filter, etc)
+					remaining filter, etc) when device is on
 				</description>
 				<default>60</default>
 			</parameter>
-			<parameter name="poll-extra-info-on-power-off" type="boolean" required="true" groupName="Settings">
-				<label>Enable Extra Info Polling on powered off device</label>
-				<description>If enables, extra info will be fetched even when the device is powered off.
-					It's not so common, since
-					extra info are normally changed only when the device is running.
+			<parameter name="polling-extra-info-period-poweroff-seconds" type="integer" groupName="Settings">
+				<label>Polling Extra Info in seconds when device is off (0 disabled)</label>
+				<description>Seconds to wait to the next polling for Device's Extra Info (energy consumption,
+					remaining filter, etc) when device is off
 				</description>
-				<default>false</default>
+				<default>0</default>
 			</parameter>
 		</config-description>
 	</thing-type>
@@ -64,7 +62,7 @@
 		<label>Dashboard</label>
 		<description>This is the Displayed Information.</description>
 		<channels>
-			<channel id="power" typeId="system.power"/>
+			<channel id="power" typeId="power-switch"/>
 			<channel id="op_mode" typeId="operation-mode"/>
 			<channel id="target_temperature" typeId="target-temperature"/>
 			<channel id="current_temperature" typeId="current-temperature"/>
@@ -76,7 +74,6 @@
 		<label>More Information</label>
 		<description>Show more information about the device.</description>
 		<channels>
-			<channel id="extended_info_collector" typeId="extended_info_collector"/>
 			<channel id="current_power" typeId="current_power"/>
 			<channel id="remaining_filter" typeId="remaining_filter"/>
 		</channels>

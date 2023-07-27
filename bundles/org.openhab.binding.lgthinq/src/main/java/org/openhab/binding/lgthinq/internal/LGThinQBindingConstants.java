@@ -142,7 +142,6 @@ public class LGThinQBindingConstants {
     public static final String CHANNEL_MOD_OP_ID = "op_mode";
     public static final String CHANNEL_FAN_SPEED_ID = "fan_speed";
     public static final String CHANNEL_POWER_ID = "power";
-    public static final String CHANNEL_EXTENDED_INFO_COLLECTOR_ID = "extended_info_collector";
     public static final String CHANNEL_CURRENT_POWER_ID = "current_power";
     public static final String CHANNEL_REMAINING_FILTER_ID = "remaining_filter";
     public static final String CHANNEL_TARGET_TEMP_ID = "target_temperature";

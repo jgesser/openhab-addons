@@ -329,11 +329,10 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
             logger.warn("Wrong configuration value for polling interval. Using default value: {}s", pollingInterval);
         }
 
-        // submit instantlly and schedule for the next polling interval if polling enabled.
-        runDiscovery();
-
         if (pollingInterval == 0) {
             logger.info("LG's discovery polling disabled (configured as zero)");
+            // submit instantlly and schedule for the next polling interval if polling enabled.
+            devicePollingJob = scheduler.schedule(lgDevicePollingRunnable, 2, TimeUnit.SECONDS);
         } else {
             devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, 2, pollingInterval, TimeUnit.SECONDS);
         }

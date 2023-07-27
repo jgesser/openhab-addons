@@ -73,7 +73,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     private final ChannelUID airCleanChannelUID;
     private final ChannelUID autoDryChannelUID;
     private final ChannelUID energySavingChannelUID;
-    private final ChannelUID extendedInfoCollectorChannelUID;
     private final ChannelUID currentPowerEnergyChannelUID;
     private final ChannelUID remainingFilterChannelUID;
 
@@ -98,8 +97,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
         autoDryChannelUID = new ChannelUID(channelGroupDashboardUID, CHANNEL_AUTO_DRY_ID);
         energySavingChannelUID = new ChannelUID(channelGroupDashboardUID, CHANNEL_ENERGY_SAVING_ID);
         powerChannelUID = new ChannelUID(channelGroupDashboardUID, CHANNEL_POWER_ID);
-        extendedInfoCollectorChannelUID = new ChannelUID(channelGroupExtendedInfoUID,
-                CHANNEL_EXTENDED_INFO_COLLECTOR_ID);
         currentPowerEnergyChannelUID = new ChannelUID(channelGroupExtendedInfoUID, CHANNEL_CURRENT_POWER_ID);
         remainingFilterChannelUID = new ChannelUID(channelGroupExtendedInfoUID, CHANNEL_REMAINING_FILTER_ID);
     }
@@ -218,16 +215,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     @Override
-    public String getDeviceAlias() {
-        return emptyIfNull(getThing().getProperties().get(DEVICE_ALIAS));
-    }
-
-    @Override
-    public String getDeviceUriJsonConfig() {
-        return emptyIfNull(getThing().getProperties().get(MODEL_URL_INFO));
-    }
-
-    @Override
     public void onDeviceRemoved() {
         // TODO - HANDLE IT, Think if it's needed
     }
@@ -238,10 +225,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     }
 
     protected void resetExtraInfoChannels() {
-        updateState(currentPowerEnergyChannelUID, UnDefType.UNDEF);
-		if (!isExtraInfoCollectorEnabled()) { // if collector is enabled we can keep the current value
-		    updateState(remainingFilterChannelUID, UnDefType.UNDEF);
-		}
+        updateState(currentPowerEnergyChannelUID, UnDefType.NULL);
 	}
 
     protected void processCommand(AsyncCommandParams params) throws LGThinqApiException {
@@ -328,9 +312,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
                         ACTargetTmp.statusOf(targetTemp));
                 break;
             }
-            case CHANNEL_EXTENDED_INFO_COLLECTOR_ID: {
-                break;
-            }
             default: {
                 logger.error("Command {} to the channel {} not supported. Ignored.", command, params.channelUID);
             }
@@ -346,11 +327,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
 			logger.warn("Can't get capabilities of the device: {}", getDeviceId());
         }
         return false;
-    }
-
-    @Override
-    protected boolean isExtraInfoCollectorEnabled() {
-        return OnOffType.ON.toString().equals(getItemLinkedValue(extendedInfoCollectorChannelUID));
     }
 
     @Override

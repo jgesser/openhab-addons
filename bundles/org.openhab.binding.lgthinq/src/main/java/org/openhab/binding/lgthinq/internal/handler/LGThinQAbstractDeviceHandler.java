@@ -65,8 +65,9 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     private int pollingPeriodOnSeconds = 10;
     private int pollingPeriodOffSeconds = 10;
     private int currentPeriodSeconds = 10;
-    private int pollingExtraInfoPeriodSeconds = 60;
-    private boolean pollExtraInfoOnPowerOff = false;
+    private int pollingExtraInfoPeriodOnSeconds = 0;
+    private int pollingExtraInfoPeriodOffSeconds = 0;
+    private int currentPeriodExtraInfoSeconds = 0;
     private Integer fetchMonitorRetries = 0;
     private boolean monitorV1Began = false;
     private boolean isThingReconfigured = false;
@@ -227,12 +228,16 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     public abstract void onDeviceAdded(@NonNullByDefault LGDevice device);
 
     public String getDeviceId() {
-        return Objects.requireNonNullElse(getThing().getProperties().get(DEVICE_ID), "undef");
+        return Objects.requireNonNull(getThing().getProperties().get(DEVICE_ID));
     }
 
-    public abstract String getDeviceAlias();
+    public String getDeviceAlias() {
+        return emptyIfNull(getThing().getProperties().get(DEVICE_ALIAS));
+    }
 
-    public abstract String getDeviceUriJsonConfig();
+    public String getDeviceUriJsonConfig() {
+        return Objects.requireNonNull(getThing().getProperties().get(MODEL_URL_INFO));
+    }
 
     public abstract void onDeviceRemoved();
 
@@ -284,6 +289,8 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     @Override
     public void initialize() {
         getLogger().debug("Initializing Thinq thing.");
+        
+        normalizeConfigurationsAndProperties();
 
         Bridge bridge = getBridge();
         if (bridge != null) {
@@ -355,7 +362,6 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
                 }
             }
             // force start state polling if the device is ONLINE
-            resetExtraInfoChannels();
             startThingStatePolling();
         }
     }
@@ -369,19 +375,20 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     private void loadConfigurations() {
         isThingReconfigured = true;
         if (getThing().getConfiguration().containsKey("polling-period-poweron-seconds")) {
-            pollingPeriodOnSeconds = ((BigDecimal) getThing().getConfiguration().get("polling-period-poweron-seconds"))
+            pollingPeriodOnSeconds = ((Number) getThing().getConfiguration().get("polling-period-poweron-seconds"))
                     .intValue();
         }
         if (getThing().getConfiguration().containsKey("polling-period-poweroff-seconds")) {
-            pollingPeriodOffSeconds = ((BigDecimal) getThing().getConfiguration()
+            pollingPeriodOffSeconds = ((Number) getThing().getConfiguration()
                     .get("polling-period-poweroff-seconds")).intValue();
         }
-        if (getThing().getConfiguration().containsKey("polling-extra-info-period-seconds")) {
-            pollingExtraInfoPeriodSeconds = ((BigDecimal) getThing().getConfiguration()
-                    .get("polling-extra-info-period-seconds")).intValue();
+        if (getThing().getConfiguration().containsKey("polling-extra-info-period-poweron-seconds")) {
+            pollingExtraInfoPeriodOnSeconds = ((Number) getThing().getConfiguration()
+                    .get("polling-extra-info-period-poweron-seconds")).intValue();
         }
-        if (getThing().getConfiguration().containsKey("poll-extra-info-on-power-off")) {
-            pollExtraInfoOnPowerOff = (Boolean) getThing().getConfiguration().get("poll-extra-info-on-power-off");
+        if (getThing().getConfiguration().containsKey("polling-extra-info-period-poweroff-seconds")) {
+            pollingExtraInfoPeriodOffSeconds = ((Number) getThing().getConfiguration()
+                    .get("polling-extra-info-period-poweroff-seconds")).intValue();
         }
         // if the periods are the same, I can define currentPeriod for polling right now. If not, I postpone to the nest
         // snapshot update
@@ -403,17 +410,6 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
      * @return always false and must be overridden if the implemented handler supports energy collector
      */
     protected boolean isExtraInfoCollectorSupported() {
-        return false;
-    }
-
-    /**
-     * Returns if the energy collector is enabled. The handle that supports energy collection must
-     * provide a logic that defines if the collector is currently enabled. Normally, it uses a Switch Channel
-     * to provide a way to the user turn on/off the collector.
-     * 
-     * @return true if the energyCollector must be enabled.
-     */
-    protected boolean isExtraInfoCollectorEnabled() {
         return false;
     }
 
@@ -498,34 +494,32 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             // no changes needed
             return;
         }
-        
-        // change from OFF to ON / OFF to ON
-        boolean isEnableToStartCollector = isExtraInfoCollectorEnabled() && isExtraInfoCollectorSupported();
-        
+
         if (current == DevicePowerState.DV_POWER_ON) {
             currentPeriodSeconds = pollingPeriodOnSeconds;
-            
-            // if extendedInfo collector is enabled, then force do start to prevent previous stop
-            if (isEnableToStartCollector) {
-                startExtraInfoCollectorPolling();
-            }
+            currentPeriodExtraInfoSeconds = pollingExtraInfoPeriodOnSeconds;
         } else {
             currentPeriodSeconds = pollingPeriodOffSeconds;
-            
-            // if it's configured to stop extra-info collection on PowerOff, then stop the job
-            if (!pollExtraInfoOnPowerOff) {
-                stopExtraInfoCollectorPolling();
-            } else if (isEnableToStartCollector) {
-                startExtraInfoCollectorPolling();
-            }
+            currentPeriodExtraInfoSeconds = pollingExtraInfoPeriodOffSeconds;
         }
-        
+
         // restart thing state polling for the new polling Period configuration
         if (pollingPeriodOffSeconds != pollingPeriodOnSeconds) {
             stopThingStatePolling();
         }
-        
         startThingStatePolling();
+
+        if (isExtraInfoCollectorSupported()) {
+            // restart extra info polling for the new polling Period configuration
+            if (pollingExtraInfoPeriodOnSeconds != pollingExtraInfoPeriodOffSeconds) {
+                stopExtraInfoCollectorPolling();
+            }
+            if (currentPeriodExtraInfoSeconds != 0) {
+                startExtraInfoCollectorPolling();
+            } else {
+                resetExtraInfoChannels();
+            }
+        }
     }
 
     private void updateDeviceChannelsWrapper(S snapshot) {
@@ -569,7 +563,6 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             getLogger().debug("Stopping Energy Collector for device/alias: {}/{}", getDeviceId(), getDeviceAlias());
             extraInfoCollectorPollingJob.cancel(true);
         }
-        resetExtraInfoChannels();
         extraInfoCollectorPollingJob = null;
     }
 
@@ -589,8 +582,8 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     private void startExtraInfoCollectorPolling() {
         if (extraInfoCollectorPollingJob == null || extraInfoCollectorPollingJob.isDone()) {
             getLogger().debug("Starting Energy Collector for device/alias: {}/{}", getDeviceId(), getDeviceAlias());
-            extraInfoCollectorPollingJob = pollingScheduler.scheduleWithFixedDelay(new UpdateExtraInfoCollector(), 10,
-                    pollingExtraInfoPeriodSeconds, TimeUnit.SECONDS);
+            extraInfoCollectorPollingJob = pollingScheduler.scheduleWithFixedDelay(new UpdateExtraInfoCollector(), 5,
+                    currentPeriodExtraInfoSeconds, TimeUnit.SECONDS);
         }
     }
 
@@ -711,20 +704,6 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
                     // if processed command come from POWER channel, then force updateDeviceChannels immediatly
                     // this is important to analise if the polling needs to be changed in time.
                     updateThingStateFromLG();
-                } else if (CHANNEL_EXTENDED_INFO_COLLECTOR_ID.equals(channelUid)) {
-                    if (OnOffType.ON.equals(params.command)) {
-                        logger.debug("Turning ON extended information collector");
-                        if (pollExtraInfoOnPowerOff
-                                || DevicePowerState.DV_POWER_ON.equals(getLastShot().getPowerStatus())) {
-                            startExtraInfoCollectorPolling();
-                        }
-                    } else if (OnOffType.OFF.equals(params.command)) {
-                        logger.debug("Turning OFF extended information collector");
-                        stopExtraInfoCollectorPolling();
-                    } else {
-                        logger.error("Command {} for {} channel is unexpected. It's most likely a bug", params.command,
-                                CHANNEL_EXTENDED_INFO_COLLECTOR_ID);
-                    }
                 }
             } catch (LGThinqException e) {
                 getLogger().error("Error executing Command {} to the channel {}. Thing goes offline until retry",

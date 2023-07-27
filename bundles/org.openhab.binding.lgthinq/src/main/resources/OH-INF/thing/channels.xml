@@ -44,17 +44,10 @@
 		</state>
 	</channel-type>
 
-	<channel-type id="extended_info_collector">
+	<channel-type id="power-switch">
 		<item-type>Switch</item-type>
-		<label>Enable Extended Info Collector</label>
-		<description>This switch enable collector for energy and filter consumption (if presents)</description>
+		<label>Power</label>
 		<category>Switch</category>
-	</channel-type>
-
-	<channel-type id="cool_jet">
-		<item-type>Switch</item-type>
-		<label>Cool Jet</label>
-		<category>Temperature</category>
 	</channel-type>
 
 	<channel-type id="cool_jet">

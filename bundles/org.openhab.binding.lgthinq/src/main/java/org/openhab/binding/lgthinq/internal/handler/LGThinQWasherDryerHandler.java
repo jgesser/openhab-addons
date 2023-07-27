@@ -399,16 +399,6 @@ public class LGThinQWasherDryerHandler
     }
 
     @Override
-    public String getDeviceAlias() {
-        return emptyIfNull(getThing().getProperties().get(DEVICE_ALIAS));
-    }
-
-    @Override
-    public String getDeviceUriJsonConfig() {
-        return emptyIfNull(getThing().getProperties().get(MODEL_URL_INFO));
-    }
-
-    @Override
     public void onDeviceRemoved() {
         // TODO - HANDLE IT, Think if it's needed
     }

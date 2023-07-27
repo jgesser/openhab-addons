@@ -36,7 +36,6 @@
 		<label>More Information</label>
 		<description>Show more information about the device.</description>
 		<channels>
-			<channel id="extended_info_collector" typeId="extended_info_collector"/>
 			<channel id="water_filter" typeId="water_filter"/>
 		</channels>
 	</channel-group-type>
