@@ -23,4 +23,5 @@ public class IntelbrasDVRConfig {
     public String username = "";
     public String password = "";
     public IntelbrasAuthMode authMode = IntelbrasAuthMode.DIGEST;
+    public Integer refreshInterval = 60;
 }

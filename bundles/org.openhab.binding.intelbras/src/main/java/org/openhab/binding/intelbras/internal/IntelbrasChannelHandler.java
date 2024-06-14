@@ -4,7 +4,9 @@
  */
 package org.openhab.binding.intelbras.internal;
 
+import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.CHANNEL_RECORD_MODE;
 import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.CHANNEL_SNAPSHOT;
+import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.CHANNEL_TITLE;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -16,6 +18,7 @@ import java.util.concurrent.TimeoutException;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.api.ContentResponse;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.RawType;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
@@ -50,7 +53,7 @@ public class IntelbrasChannelHandler extends BaseThingHandler {
     public void initialize() {
         config = getConfigAs(IntelbrasChannelConfig.class);
 
-        if (config.id < 1) {
+        if (getCameraId() < 1) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
                     "Parameter id must greater than 0!");
             return;
@@ -64,7 +67,7 @@ public class IntelbrasChannelHandler extends BaseThingHandler {
 
         try {
             if (config.snapshotRefreshInterval > 0) {
-                snapshotRefreshTask = scheduler.scheduleWithFixedDelay(() -> refreshAll(), 0,
+                snapshotRefreshTask = scheduler.scheduleWithFixedDelay(() -> refreshSnapshot(), 0,
                         config.snapshotRefreshInterval, TimeUnit.SECONDS);
             } else {
                 updateStatus(ThingStatus.ONLINE);
@@ -82,15 +85,11 @@ public class IntelbrasChannelHandler extends BaseThingHandler {
         }
     }
 
-    private void refreshAll() {
-        refresh(getThing().getChannel(CHANNEL_SNAPSHOT).getUID());
-    }
-
-    private void refresh(ChannelUID channelUID) {
+    private void refreshSnapshot() {
         try {
             ContentResponse response = getSnapshot();
 
-            updateState(channelUID.getId(), new RawType(response.getContent(),
+            updateState(getThing().getChannel(CHANNEL_SNAPSHOT).getUID(), new RawType(response.getContent(),
                     response.getMediaType() != null ? response.getMediaType() : RawType.DEFAULT_MIME_TYPE));
 
             updateStatus(ThingStatus.ONLINE);
@@ -103,15 +102,58 @@ public class IntelbrasChannelHandler extends BaseThingHandler {
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        if (command instanceof RefreshType) {
-            refresh(channelUID);
-            return;
+
+        switch (channelUID.getId()) {
+            case CHANNEL_TITLE:
+                if (command instanceof RefreshType) {
+                    ((IntelbrasDVRHandler) getBridge().getHandler()).refreshTitles();
+                    return;
+                }
+                break;
+            case CHANNEL_RECORD_MODE:
+                if (command instanceof RefreshType) {
+                    ((IntelbrasDVRHandler) getBridge().getHandler()).refreshRecordModes();
+                    return;
+                }
+                if (command instanceof DecimalType) {
+                    setRecordMode(((DecimalType) command).intValue());
+                    return;
+                }
+
+                break;
+            case CHANNEL_SNAPSHOT:
+                if (command instanceof RefreshType) {
+                    refreshSnapshot();
+                    return;
+                }
+                break;
         }
         logger.error("Unsupported command '{}' to channel '{}'", command, channelUID);
     }
 
     public ContentResponse getSnapshot() throws InterruptedException, ExecutionException, TimeoutException {
-        return getDVR().getSnapshot(config.id);
+        return getDVR().getSnapshot(getCameraId());
+    }
+
+    public void setRecordMode(Integer mode) {
+        try {
+            getDVR().setRecordMode(getCameraId(), mode);
+            updateState(getThing().getChannel(CHANNEL_RECORD_MODE).getUID(), new DecimalType(mode));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Integer getCameraId() {
+        return config.id;
+    }
+
+    public void disableRecording() throws InterruptedException, ExecutionException, TimeoutException {
+        setRecordMode(2);
+    }
+
+    public void enableRecording() throws InterruptedException, ExecutionException, TimeoutException {
+        setRecordMode(0);
     }
 
     private @Nullable IntelbrasDVRHandler getDVR() {

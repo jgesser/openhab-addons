@@ -30,5 +30,7 @@ public class IntelbrasBindingConstants {
     public static final ThingTypeUID THING_TYPE_CHANNEL = new ThingTypeUID(BINDING_ID, "channel");
 
     // List of all Channel ids
+    public static final String CHANNEL_TITLE = "title";
     public static final String CHANNEL_SNAPSHOT = "snapshot";
+    public static final String CHANNEL_RECORD_MODE = "recordMode";
 }
