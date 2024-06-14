@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,21 +12,30 @@
  */
 package org.openhab.binding.netatmo.internal.handler.capability;
 
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.netatmo.internal.api.NetatmoException;
 import org.openhab.binding.netatmo.internal.api.SecurityApi;
+import org.openhab.binding.netatmo.internal.api.data.NetatmoConstants.FeatureArea;
 import org.openhab.binding.netatmo.internal.api.data.NetatmoConstants.FloodLightMode;
+import org.openhab.binding.netatmo.internal.api.data.NetatmoConstants.SirenStatus;
 import org.openhab.binding.netatmo.internal.api.dto.HomeData;
 import org.openhab.binding.netatmo.internal.api.dto.HomeDataModule;
 import org.openhab.binding.netatmo.internal.api.dto.HomeDataPerson;
 import org.openhab.binding.netatmo.internal.api.dto.HomeEvent;
 import org.openhab.binding.netatmo.internal.api.dto.HomeStatusModule;
 import org.openhab.binding.netatmo.internal.api.dto.HomeStatusPerson;
+import org.openhab.binding.netatmo.internal.api.dto.NAHomeStatus;
 import org.openhab.binding.netatmo.internal.api.dto.NAHomeStatus.HomeStatus;
+import org.openhab.binding.netatmo.internal.api.dto.NAObject;
+import org.openhab.binding.netatmo.internal.config.HomeConfiguration;
 import org.openhab.binding.netatmo.internal.deserialization.NAObjectMap;
 import org.openhab.binding.netatmo.internal.handler.CommonInterface;
 import org.slf4j.Logger;
@@ -42,89 +51,147 @@ import org.slf4j.LoggerFactory;
 class SecurityCapability extends RestCapability<SecurityApi> {
     private final Logger logger = LoggerFactory.getLogger(SecurityCapability.class);
 
+    private final Map<String, HomeEvent> eventBuffer = new HashMap<>();
+    private @Nullable ZonedDateTime freshestEventTime;
+
+    private NAObjectMap<HomeDataPerson> persons = new NAObjectMap<>();
+    private NAObjectMap<HomeDataModule> modules = new NAObjectMap<>();
+    private String securityId = "";
+
     SecurityCapability(CommonInterface handler) {
         super(handler, SecurityApi.class);
     }
 
     @Override
+    public void initialize() {
+        super.initialize();
+        freshestEventTime = null;
+        securityId = handler.getConfiguration().as(HomeConfiguration.class).getIdForArea(FeatureArea.SECURITY);
+    }
+
+    @Override
     protected void updateHomeData(HomeData homeData) {
-        NAObjectMap<HomeDataPerson> persons = homeData.getPersons();
-        NAObjectMap<HomeDataModule> modules = homeData.getModules();
-        handler.getActiveChildren().forEach(childHandler -> {
-            String childId = childHandler.getId();
-            persons.getOpt(childId).ifPresentOrElse(personData -> {
-                personData.setIgnoredForThingUpdate(true);
-                childHandler.setNewData(personData);
-            }, () -> {
-                modules.getOpt(childId).ifPresent(childData -> {
-                    childData.setIgnoredForThingUpdate(true);
-                    childHandler.setNewData(childData);
-                });
-                modules.values().stream().filter(module -> childId.equals(module.getBridge()))
-                        .forEach(bridgedModule -> {
-                            childHandler.setNewData(bridgedModule);
+        if (homeData instanceof HomeData.Security securityData) {
+            persons = securityData.getPersons();
+            modules = homeData.getModules();
+            handler.getActiveChildren(FeatureArea.SECURITY).forEach(childHandler -> {
+                String childId = childHandler.getId();
+                persons.getOpt(childId).ifPresentOrElse(
+                        personData -> childHandler.setNewData(personData.ignoringForThingUpdate()), () -> {
+                            modules.getOpt(childId).ifPresent(
+                                    childData -> childHandler.setNewData(childData.ignoringForThingUpdate()));
+                            modules.values().stream().filter(module -> childId.equals(module.getBridge()))
+                                    .forEach(bridgedModule -> childHandler.setNewData(bridgedModule));
                         });
             });
-        });
+        }
     }
 
     @Override
     protected void updateHomeStatus(HomeStatus homeStatus) {
-        NAObjectMap<HomeStatusPerson> persons = homeStatus.getPersons();
-        NAObjectMap<HomeStatusModule> modules = homeStatus.getModules();
-        handler.getActiveChildren().forEach(childHandler -> {
-            String childId = childHandler.getId();
-            persons.getOpt(childId).ifPresentOrElse(personData -> childHandler.setNewData(personData), () -> {
-                modules.getOpt(childId).ifPresentOrElse(childData -> {
-                    childHandler.setNewData(childData);
-                    modules.values().stream().filter(module -> childId.equals(module.getBridge()))
-                            .forEach(bridgedModule -> {
-                                childHandler.setNewData(bridgedModule);
-                            });
-
-                }, () -> {
-                    // This module is not present in the homestatus data, so it is considered as unreachable
-                    HomeStatusModule module = new HomeStatusModule();
-                    module.setReachable(false);
-                    childHandler.setNewData(module);
+        if (homeStatus instanceof NAHomeStatus.Security securityStatus) {
+            NAObjectMap<HomeStatusPerson> persons = securityStatus.getPersons();
+            NAObjectMap<HomeStatusModule> modules = securityStatus.getModules();
+            handler.getActiveChildren(FeatureArea.SECURITY).forEach(childHandler -> {
+                String childId = childHandler.getId();
+                persons.getOpt(childId).ifPresentOrElse(personData -> childHandler.setNewData(personData), () -> {
+                    modules.getOpt(childId).ifPresent(childData -> {
+                        childHandler.setNewData(childData);
+                        modules.values().stream().filter(module -> childId.equals(module.getBridge()))
+                                .forEach(bridgedModule -> childHandler.setNewData(bridgedModule));
+                    });
                 });
             });
-        });
+        }
     }
 
     @Override
     protected void updateHomeEvent(HomeEvent homeEvent) {
-        String personId = homeEvent.getPersonId();
-        if (personId != null) {
-            handler.getActiveChildren().stream().filter(handler -> personId.equals(handler.getId())).findFirst()
-                    .ifPresent(handler -> {
-                        homeEvent.setIgnoredForThingUpdate(true);
-                        handler.setNewData(homeEvent);
-                    });
-        }
-        String cameraId = homeEvent.getCameraId();
-        handler.getActiveChildren().stream().filter(handler -> cameraId.equals(handler.getId())).findFirst()
-                .ifPresent(handler -> {
-                    homeEvent.setIgnoredForThingUpdate(true);
-                    handler.setNewData(homeEvent);
-                });
+        addEventIfKnownObject(homeEvent, homeEvent.getPersonId());
+        addEventIfKnownObject(homeEvent, homeEvent.getCameraId());
     }
 
-    public Collection<HomeEvent> getDeviceEvents(String cameraId, String deviceType) {
+    private void addEventIfKnownObject(HomeEvent homeEvent, @Nullable String objectId) {
+        if (objectId == null) {
+            return;
+        }
+        handler.getActiveChildren(FeatureArea.SECURITY).filter(child -> child.getId().equals(objectId))
+                .forEach(child -> child.setNewData(homeEvent.ignoringForThingUpdate()));
+    }
+
+    @Override
+    protected List<NAObject> updateReadings(SecurityApi api) {
+        List<NAObject> result = new ArrayList<>();
+        try {
+            for (HomeEvent event : api.getHomeEvents(securityId, freshestEventTime)) {
+                HomeEvent previousEvent = eventBuffer.get(event.getCameraId());
+                if (previousEvent == null || previousEvent.getTime().isBefore(event.getTime())) {
+                    eventBuffer.put(event.getCameraId(), event);
+                }
+                String personId = event.getPersonId();
+                if (personId != null) {
+                    previousEvent = eventBuffer.get(personId);
+                    if (previousEvent == null || previousEvent.getTime().isBefore(event.getTime())) {
+                        eventBuffer.put(personId, event);
+                    }
+                }
+                if (freshestEventTime == null || event.getTime().isAfter(freshestEventTime)) {
+                    freshestEventTime = event.getTime();
+                }
+            }
+        } catch (NetatmoException e) {
+            logger.warn("Error retrieving last events for home '{}' : {}", securityId, e.getMessage());
+        }
+        return result;
+    }
+
+    public NAObjectMap<HomeDataPerson> getPersons() {
+        return persons;
+    }
+
+    public NAObjectMap<HomeDataModule> getModules() {
+        return modules;
+    }
+
+    public @Nullable HomeEvent getLastPersonEvent(String personId) {
+        HomeEvent event = eventBuffer.get(personId);
+        if (event == null) {
+            Collection<HomeEvent> events = requestPersonEvents(personId);
+            if (!events.isEmpty()) {
+                event = events.iterator().next();
+                eventBuffer.put(personId, event);
+            }
+        }
+        return event;
+    }
+
+    public @Nullable HomeEvent getDeviceLastEvent(String moduleId, String deviceType) {
+        HomeEvent event = eventBuffer.get(moduleId);
+        if (event == null) {
+            Collection<HomeEvent> events = requestDeviceEvents(moduleId, deviceType);
+            if (!events.isEmpty()) {
+                event = events.iterator().next();
+                eventBuffer.put(moduleId, event);
+            }
+        }
+        return event;
+    }
+
+    private Collection<HomeEvent> requestDeviceEvents(String moduleId, String deviceType) {
         return getApi().map(api -> {
             try {
-                return api.getDeviceEvents(handler.getId(), cameraId, deviceType);
+                return api.getDeviceEvents(securityId, moduleId, deviceType);
             } catch (NetatmoException e) {
-                logger.warn("Error retrieving last events of camera '{}' : {}", cameraId, e.getMessage());
+                logger.warn("Error retrieving last events of camera '{}' : {}", moduleId, e.getMessage());
                 return null;
             }
         }).orElse(List.of());
     }
 
-    public Collection<HomeEvent> getPersonEvents(String personId) {
+    private Collection<HomeEvent> requestPersonEvents(String personId) {
         return getApi().map(api -> {
             try {
-                return api.getPersonEvents(handler.getId(), personId);
+                return api.getPersonEvents(securityId, personId);
             } catch (NetatmoException e) {
                 logger.warn("Error retrieving last events of person '{}' : {}", personId, e.getMessage());
                 return null;
@@ -135,7 +202,7 @@ class SecurityCapability extends RestCapability<SecurityApi> {
     public void setPersonAway(String personId, boolean away) {
         getApi().ifPresent(api -> {
             try {
-                api.setPersonAwayStatus(handler.getId(), personId, away);
+                api.setPersonAwayStatus(securityId, personId, away);
                 handler.expireData();
             } catch (NetatmoException e) {
                 logger.warn("Error setting person away/at home '{}' : {}", personId, e.getMessage());
@@ -144,14 +211,7 @@ class SecurityCapability extends RestCapability<SecurityApi> {
     }
 
     public @Nullable String ping(String vpnUrl) {
-        return getApi().map(api -> {
-            try {
-                return api.ping(vpnUrl);
-            } catch (NetatmoException e) {
-                logger.warn("Error pinging camera '{}' : {}", vpnUrl, e.getMessage());
-                return null;
-            }
-        }).orElse(null);
+        return getApi().map(api -> api.ping(vpnUrl)).orElse(null);
     }
 
     public void changeStatus(@Nullable String localURL, boolean status) {
@@ -172,10 +232,21 @@ class SecurityCapability extends RestCapability<SecurityApi> {
     public void changeFloodlightMode(String cameraId, FloodLightMode mode) {
         getApi().ifPresent(api -> {
             try {
-                api.changeFloodLightMode(handler.getId(), cameraId, mode);
+                api.changeFloodLightMode(securityId, cameraId, mode);
                 handler.expireData();
             } catch (NetatmoException e) {
                 logger.warn("Error changing Presence floodlight mode '{}' : {}", mode, e.getMessage());
+            }
+        });
+    }
+
+    public void changeSirenStatus(String moduleId, SirenStatus status) {
+        getApi().ifPresent(api -> {
+            try {
+                api.changeSirenStatus(handler.getId(), moduleId, status);
+                handler.expireData();
+            } catch (NetatmoException e) {
+                logger.warn("Error changing siren status '{}' : {}", status, e.getMessage());
             }
         });
     }

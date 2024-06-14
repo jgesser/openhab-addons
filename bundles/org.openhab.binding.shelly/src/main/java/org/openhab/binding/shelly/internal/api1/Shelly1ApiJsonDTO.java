@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -124,7 +124,7 @@ public class Shelly1ApiJsonDTO {
     //
     // API values
     //
-    public static final double SHELLY_API_INVTEMP = -999.0;
+    public static final double SHELLY_API_INVTEMP = 999.0;
 
     public static final String SHELLY_BTNT_MOMENTARY = "momentary";
     public static final String SHELLY_BTNT_MOM_ON_RELEASE = "momentary_on_release";
@@ -283,6 +283,7 @@ public class Shelly1ApiJsonDTO {
         public Boolean enabled;
         public String ssid;
         public String key;
+        public Boolean rangeExtender; // Gen2 only
     }
 
     public static class ShellySettingsWiFiNetwork {
@@ -404,6 +405,7 @@ public class Shelly1ApiJsonDTO {
         public String pushShortUrl; // to access when roller stopped
 
         // Status information
+        public Integer id;
         public Boolean ison;
         public Boolean overpower;
         @SerializedName("is_valid")
@@ -605,6 +607,7 @@ public class Shelly1ApiJsonDTO {
         @SerializedName("max_power")
         public Double maxPower;
         public Boolean calibrated;
+
         public Double voltage; // AC voltage for Shelly 2.5
         @SerializedName("supply_voltage")
         public Long supplyVoltage; // Shelly 1PM/1L: 0=110V, 1=220V
@@ -616,10 +619,18 @@ public class Shelly1ApiJsonDTO {
         public @Nullable ArrayList<ShellySettingsRgbwLight> lights;
         public @Nullable ArrayList<ShellySettingsEMeter> emeters;
         public @Nullable ArrayList<ShellyThermnostat> thermostats; // TRV
+
+        @SerializedName("ext_switch_enable")
+        public Boolean externalSwitchEnable;
+        @SerializedName("ext_switch")
+        public ShellyStatusSensor.ShellyExtSwitchSettings extSwitch;
         @SerializedName("ext_temperature")
         public ShellyStatusSensor.ShellyExtTemperature extTemperature; // Shelly 1/1PM: sensor values
         @SerializedName("ext_humidity")
         public ShellyStatusSensor.ShellyExtHumidity extHumidity; // Shelly 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtVoltage extVoltage; // Shelly ´Plus 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtAnalogInput extAnalogInput; // Shelly ´Plus 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtDigitalInput extDigitalInput; // Shelly ´Plus 1/1PM: state of digital input
 
         @SerializedName("temperature_units")
         public String temperatureUnits = "C"; // Either'C'or'F'
@@ -675,6 +686,10 @@ public class Shelly1ApiJsonDTO {
 
         @SerializedName("sleep_time") // Shelly Motion
         public Integer sleepTime;
+
+        // Gen2
+        public Boolean ethernet;
+        public Boolean bluetooth;
     }
 
     public static class ShellySettingsAttributes {
@@ -701,7 +716,8 @@ public class Shelly1ApiJsonDTO {
         public String name; // FW 1.8: Symbolic Device name is configurable
 
         @SerializedName("wifi_sta")
-        public ShellySettingsWiFiNetwork wifiSta = new ShellySettingsWiFiNetwork();
+        public ShellySettingsWiFiNetwork wifiSta = new ShellySettingsWiFiNetwork(); // WiFi client configuration. See
+                                                                                    // /settings/sta for details
         public ShellyStatusCloud cloud = new ShellyStatusCloud();
         public ShellyStatusMqtt mqtt = new ShellyStatusMqtt();
 
@@ -715,22 +731,33 @@ public class Shelly1ApiJsonDTO {
         public Integer cfgChangedCount; // FW 1.8
         @SerializedName("actions_stats")
         public ShellyActionsStats astats;
-        public Double voltage; // Shelly 2.5
 
-        public Integer input; // RGBW2 has no JSON array
         public ArrayList<ShellySettingsRelay> relays;
-        public ArrayList<ShellyRollerStatus> rollers;
-        public ArrayList<ShellyShortLightStatus> dimmers;
+        public Double voltage; // Shelly 2.5
+        public Integer input; // RGBW2 has no JSON array
         public ArrayList<ShellyInputState> inputs;
+        public ArrayList<ShellyShortLightStatus> dimmers;
+        public ArrayList<ShellyRollerStatus> rollers;
+        public ArrayList<ShellySettingsLight> lights;
         public ArrayList<ShellySettingsMeter> meters;
+
         public ArrayList<ShellySettingsEMeter> emeters;
+        public Double totalCurrent;
+        public Double totalPower;
+        public Double totalReturned;
+
         @SerializedName("ext_temperature")
         public ShellyStatusSensor.ShellyExtTemperature extTemperature; // Shelly 1/1PM: sensor values
         @SerializedName("ext_humidity")
         public ShellyStatusSensor.ShellyExtHumidity extHumidity; // Shelly 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtVoltage extVoltage; // Shelly ´Plus 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtAnalogInput extAnalogInput; // Shelly ´Plus 1/1PM: sensor values
+        public ShellyStatusSensor.ShellyExtDigitalInput extDigitalInput; // Shelly ´Plus 1/1PM: sensor values
+        @SerializedName("ext_switch")
+        public ShellyStatusSensor.ShellyExtSwitchStatus extSwitch;
 
         // Internal device temp
-        public ShellySensorTmp tmp = new ShellySensorTmp(); // Shelly 1PM
+        public ShellySensorTmp tmp; // Shelly 1PM
         public Double temperature; // Shelly 2.5
         public Boolean overtemperature;
 
@@ -743,7 +770,6 @@ public class Shelly1ApiJsonDTO {
         public ArrayList<ShellyThermnostat> thermostats;
 
         public ShellySettingsUpdate update = new ShellySettingsUpdate();
-
         @SerializedName("ram_total")
         public Long ramTotal;
         @SerializedName("ram_free")
@@ -798,9 +824,10 @@ public class Shelly1ApiJsonDTO {
         public Boolean ison; // Whether output channel is on or off
         public String mode; // color or white - valid only for Bulb and RGBW2 even Dimmer returns it also
         public Integer brightness; // brightness: 0.100%
-
         @SerializedName("has_timer")
         public Boolean hasTimer;
+        @SerializedName("timer_duration")
+        public Integer timerDuration;
     }
 
     public static class ShellyStatusRelay {
@@ -901,6 +928,8 @@ public class Shelly1ApiJsonDTO {
         public ShellyThermTemp tmp;
         @SerializedName("boost_minutes")
         public Integer boostMinutes;
+        @SerializedName("window_open")
+        public Boolean windowOpen;
     }
 
     public static class ShellySensorTmp {
@@ -914,6 +943,7 @@ public class Shelly1ApiJsonDTO {
 
     public static class ShellyStatusSensor {
         // https://shelly-api-docs.shelly.cloud/#h-amp-t-settings
+
         public static class ShellySensorHum {
             public Double value; // relative humidity in %
         }
@@ -964,6 +994,7 @@ public class Shelly1ApiJsonDTO {
 
         public static class ShellyExtTemperature {
             public static class ShellyShortTemp {
+                public String hwID; // e.g. "2882379497020381",
                 public Double tC; // temperature in deg C
                 public Double tF; // temperature in deg F
             }
@@ -976,6 +1007,10 @@ public class Shelly1ApiJsonDTO {
             public ShellyShortTemp sensor2;
             @SerializedName("2")
             public ShellyShortTemp sensor3;
+            @SerializedName("3")
+            public ShellyShortTemp sensor4;
+            @SerializedName("4")
+            public ShellyShortTemp sensor5;
         }
 
         public static class ShellyExtHumidity {
@@ -983,14 +1018,90 @@ public class Shelly1ApiJsonDTO {
                 public Double hum; // Humidity reading of sensor 0, percent
             }
 
-            // Shelly 1/1PM have up to 3 sensors
-            // for whatever reasons it's not an array, but 3 independent elements
+            public ShellyExtHumidity() {
+            }
+
+            public ShellyExtHumidity(double hum) {
+                sensor1 = new ShellyShortHum();
+                sensor1.hum = hum;
+            }
+
             @SerializedName("0")
             public ShellyShortHum sensor1;
         }
 
+        public static class ShellyExtVoltage {
+            public static class ShellyShortVoltage {
+                public Double voltage;
+            }
+
+            public ShellyExtVoltage() {
+            }
+
+            public ShellyExtVoltage(double voltage) {
+                sensor1 = new ShellyShortVoltage();
+                sensor1.voltage = voltage;
+            }
+
+            @SerializedName("0")
+            public ShellyShortVoltage sensor1;
+        }
+
+        public static class ShellyExtDigitalInput {
+            public static class ShellyShortDigitalInput {
+                public Boolean state;
+            }
+
+            public ShellyExtDigitalInput() {
+            }
+
+            public ShellyExtDigitalInput(boolean state) {
+                sensor1 = new ShellyShortDigitalInput();
+                sensor1.state = state;
+            }
+
+            @SerializedName("0")
+            public ShellyShortDigitalInput sensor1;
+        }
+
+        public static class ShellyExtAnalogInput {
+            public static class ShellyShortAnalogInput {
+                public Double percent;
+            }
+
+            public ShellyExtAnalogInput() {
+            }
+
+            public ShellyExtAnalogInput(double percent) {
+                sensor1 = new ShellyShortAnalogInput();
+                sensor1.percent = percent;
+            }
+
+            @SerializedName("0")
+            public ShellyShortAnalogInput sensor1;
+        }
+
         public static class ShellyADC {
             public Double voltage;
+        }
+
+        public static class ShellyExtSwitchSettings {
+            public static class ShellyExtSwitchSettingsInput {
+                @SerializedName("relay_num")
+                public Integer relayNum;
+            }
+
+            @SerializedName("0")
+            public ShellyExtSwitchSettingsInput input0;
+        }
+
+        public static class ShellyExtSwitchStatus {
+            public static class ShellyExtSwitchStatusInput {
+                public Integer input;
+            }
+
+            @SerializedName("0")
+            public ShellyExtSwitchStatusInput input0;
         }
 
         public ShellySensorTmp tmp;
@@ -1002,6 +1113,7 @@ public class Shelly1ApiJsonDTO {
         public ShellySensorState sensor;
         public Boolean smoke; // SHelly Smoke
         public Boolean flood; // Shelly Flood: true = flood condition detected
+        public Boolean mute; // mute enabled/disabled
         @SerializedName("rain_sensor")
         public Boolean rainSensor; // Shelly Flood: true=in rain mode
 

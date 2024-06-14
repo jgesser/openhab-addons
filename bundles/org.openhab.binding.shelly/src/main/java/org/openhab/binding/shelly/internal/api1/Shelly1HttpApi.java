@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -49,6 +49,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyShortLig
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusLight;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusRelay;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSensor;
+import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyThermnostat;
 import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
 import org.openhab.binding.shelly.internal.handler.ShellyThingInterface;
 import org.openhab.core.library.unit.ImperialUnits;
@@ -89,7 +90,9 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
 
     @Override
     public ShellySettingsDevice getDeviceInfo() throws ShellyApiException {
-        return callApi(SHELLY_URL_DEVINFO, ShellySettingsDevice.class);
+        ShellySettingsDevice info = callApi(SHELLY_URL_DEVINFO, ShellySettingsDevice.class);
+        info.gen = 1;
+        return info;
     }
 
     @Override
@@ -151,6 +154,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
         String json = "";
         try {
             json = httpRequest(SHELLY_URL_STATUS);
+
             // Dimmer2 returns invalid json type for loaderror :-(
             json = json.replace("\"loaderror\":0,", "\"loaderror\":false,")
                     .replace("\"loaderror\":1,", "\"loaderror\":true,")
@@ -170,8 +174,12 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
 
     @Override
     public void setRelayTurn(int id, String turnMode) throws ShellyApiException {
-        callApi(getControlUriPrefix(id) + "?" + SHELLY_LIGHT_TURN + "=" + turnMode.toLowerCase(),
-                ShellyShortLightStatus.class);
+        callApi(getControlUriPrefix(id) + "?" + SHELLY_LIGHT_TURN + "=" + turnMode.toLowerCase(), String.class);
+    }
+
+    @Override
+    public void resetMeterTotal(int id) throws ShellyApiException {
+        callApi(SHELLY_URL_STATUS_EMETER + "/" + id + "?reset_totals=true", ShellyStatusRelay.class);
     }
 
     @Override
@@ -223,11 +231,16 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
             // SHelly H&T uses external_power, Sense uses charger
             status.charger = profile.settings.externalPower != 0;
         }
+        if (status.tmp != null && status.tmp.tC == null && status.tmp.value != null) { // Motion is is missing tC and tF
+            status.tmp.tC = getString(status.tmp.units).toUpperCase().equals(SHELLY_TEMP_FAHRENHEIT)
+                    ? ImperialUnits.FAHRENHEIT.getConverterTo(SIUnits.CELSIUS).convert(status.tmp.value).doubleValue()
+                    : status.tmp.value;
+        }
         return status;
     }
 
     @Override
-    public void setTimer(int index, String timerName, int value) throws ShellyApiException {
+    public void setAutoTimer(int index, String timerName, double value) throws ShellyApiException {
         String type = SHELLY_CLASS_RELAY;
         if (profile.isRoller) {
             type = SHELLY_CLASS_ROLLER;
@@ -251,7 +264,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     @Override
     public void setValveMode(int valveId, boolean auto) throws ShellyApiException {
         String uri = "/settings/thermostat/" + valveId + "?target_t_enabled=" + (auto ? "1" : "0");
-        if (auto) {
+        if (auto && profile.settings.thermostats != null) {
             uri = uri + "&target_t=" + getDouble(profile.settings.thermostats.get(0).targetTemp.value);
         }
         httpRequest(uri); // percentage to open the valve
@@ -275,12 +288,15 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
 
     @Override
     public void startValveBoost(int valveId, int value) throws ShellyApiException {
-        int minutes = value != -1 ? value : getInteger(profile.settings.thermostats.get(0).boostMinutes);
-        httpRequest("/thermostat/0?boost_minutes=" + minutes);
+        if (profile.settings.thermostats != null) {
+            ShellyThermnostat t = profile.settings.thermostats.get(0);
+            int minutes = value != -1 ? value : getInteger(t.boostMinutes);
+            httpRequest("/thermostat/0?boost_minutes=" + minutes);
+        }
     }
 
     @Override
-    public void setLedStatus(String ledName, Boolean value) throws ShellyApiException {
+    public void setLedStatus(String ledName, boolean value) throws ShellyApiException {
         httpRequest(SHELLY_URL_SETTINGS + "?" + ledName + "=" + (value ? SHELLY_API_TRUE : SHELLY_API_FALSE));
     }
 
@@ -352,10 +368,26 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     }
 
     @Override
+    public boolean setWiFiRangeExtender(boolean enable) throws ShellyApiException {
+        return false;
+    }
+
+    @Override
+    public boolean setEthernet(boolean enable) throws ShellyApiException {
+        return false;
+    }
+
+    @Override
+    public boolean setBluetooth(boolean enable) throws ShellyApiException {
+        return false;
+    }
+
+    @Override
     public String resetStaCache() throws ShellyApiException { // FW 1.10+: Reset cached STA/AP list and to a rescan
         return callApi("/sta_cache_reset", String.class);
     }
 
+    @Override
     public ShellySettingsUpdate firmwareUpdate(String uri) throws ShellyApiException {
         return callApi("/ota?" + uri, ShellySettingsUpdate.class);
     }
@@ -437,7 +469,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     }
 
     /**
-     * Sends a IR key code to the Shelly Sense.
+     * Sends an IR key code to the Shelly Sense.
      *
      * @param keyCode A keyCoud could be a symbolic name (as defined in the key map on the device) or a PRONTO Code in
      *            plain or hex64 format
@@ -505,6 +537,11 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
         }
     }
 
+    @Override
+    public void muteSmokeAlarm(int id) throws ShellyApiException {
+        throw new ShellyApiException("Request not supported");
+    }
+
     /**
      * Set sensor Action URLs
      *
@@ -559,7 +596,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
                 // H&T adds the type=xx to report_url itself, so we need to ommit here
                 String eclass = profile.isSensor ? EVENT_TYPE_SENSORDATA : eventType;
                 String urlParm = eventType.contains("temp") || profile.isHT ? "" : "?type=" + eventType;
-                String callBackUrl = "http://" + config.localIp + ":" + config.localPort + SHELLY_CALLBACK_URI + "/"
+                String callBackUrl = "http://" + config.localIp + ":" + config.localPort + SHELLY1_CALLBACK_URI + "/"
                         + profile.thingName + "/" + eclass + urlParm;
                 String newUrl = enabled ? callBackUrl : SHELLY_NULL_URL;
                 String testUrl = "\"" + mkEventUrl(eventType) + "\":\"" + newUrl + "\"";
@@ -581,7 +618,7 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
             throws ShellyApiException {
         for (String eventType : eventTypes) {
             if (profile.containsEventUrl(eventType)) {
-                String callBackUrl = "http://" + config.localIp + ":" + config.localPort + SHELLY_CALLBACK_URI + "/"
+                String callBackUrl = "http://" + config.localIp + ":" + config.localPort + SHELLY1_CALLBACK_URI + "/"
                         + profile.thingName + "/" + deviceClass + "/" + index + "?type=" + eventType;
                 String newUrl = enabled ? callBackUrl : SHELLY_NULL_URL;
                 String test = "\"" + mkEventUrl(eventType) + "\":\"" + callBackUrl + "\"";
@@ -712,5 +749,13 @@ public class Shelly1HttpApi extends ShellyHttpClient implements ShellyApiInterfa
     @Override
     public int getTimeoutsRecovered() {
         return timeoutsRecovered;
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public void startScan() {
     }
 }
