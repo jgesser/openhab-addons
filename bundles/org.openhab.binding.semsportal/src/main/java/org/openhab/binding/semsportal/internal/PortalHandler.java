@@ -118,31 +118,27 @@ public class PortalHandler extends BaseBridgeHandler {
         super.dispose();
     }
 
-    private void login() {
+    private boolean login() {
         loggedIn = false;
         String payload = gson.toJson(new LoginRequest(config.username, config.password));
         String response = sendPost(LOGIN_URL, payload);
         if (response == null) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "Invalid response from SEMS portal");
-            return;
+            return false;
         }
         LoginResponse loginResponse = gson.fromJson(response, LoginResponse.class);
-        if (loginResponse == null) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
-            return;
-        }
-        if (loginResponse.isOk()) {
+        if (loginResponse != null && loginResponse.isOk()) {
             logger.debug("Successfuly logged in to SEMS portal");
             if (loginResponse.getToken() != null) {
                 sessionToken = loginResponse.getToken();
             }
             loggedIn = true;
             updateStatus(ThingStatus.ONLINE);
-        } else {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.CONFIGURATION_ERROR,
-                    "Check username / password");
+            return true;
         }
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
+        return false;
     }
 
     private @Nullable String sendPost(String url, String payload) {
@@ -168,8 +164,13 @@ public class PortalHandler extends BaseBridgeHandler {
     public @Nullable StationStatus getStationStatus(String stationUUID)
             throws CommunicationException, ConfigurationException {
         if (!loggedIn) {
-            logger.debug("Not logged in. Not updating.");
-            return null;
+            if (getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
+                logger.debug("Not logged in. Not updating.");
+                return null;
+            }
+            if (!login()) {
+                return null;
+            }
         }
         String response = sendPost(STATUS_URL, gson.toJson(new StatusRequest(stationUUID)));
         if (response == null) {
@@ -189,7 +190,9 @@ public class PortalHandler extends BaseBridgeHandler {
             return currentStatus;
         } else if (semsResponse.isSessionInvalid()) {
             logger.debug("Session is invalidated. Attempting new login.");
-            login();
+            if (!login()) {
+                return null;
+            }
             return getStationStatus(stationUUID);
         } else if (semsResponse.isError()) {
             throw new ConfigurationException(
