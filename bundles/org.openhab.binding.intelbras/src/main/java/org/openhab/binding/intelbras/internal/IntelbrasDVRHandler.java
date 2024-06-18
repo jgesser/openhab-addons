@@ -133,6 +133,14 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
             try {
                 refreshAll();
                 updateStatus(ThingStatus.ONLINE);
+
+                if (config.refreshInterval > 0) {
+                    refreshTask = scheduler.scheduleWithFixedDelay(() -> {
+                        refreshAll();
+                        updateStatus(ThingStatus.ONLINE);
+                    }, config.refreshInterval, config.refreshInterval, TimeUnit.SECONDS);
+                }
+
             } catch (Exception e) {
                 logger.error("Error when connecting to DVR", e);
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
@@ -140,17 +148,6 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
             }
         });
 
-        if (config.refreshInterval > 0) {
-            refreshTask = scheduler.scheduleWithFixedDelay(() -> {
-                try {
-                    refreshAll();
-                } catch (Exception e) {
-                    logger.error("Error when connecting to DVR", e);
-                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                            "Unable to update DVR info.");
-                }
-            }, config.refreshInterval, config.refreshInterval, TimeUnit.SECONDS);
-        }
     }
 
     @Override
@@ -160,7 +157,7 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
         }
     }
 
-    private void refreshAll() throws InterruptedException, ExecutionException, TimeoutException {
+    private void refreshAll() {
         refreshTitles();
         refreshRecordModes();
     }
@@ -186,7 +183,16 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
 
             for (Thing thing : getThing().getThings()) {
                 Channel channel = thing.getChannel(channelName);
-                Integer camId = ((IntelbrasChannelHandler) thing.getHandler()).getCameraId();
+                if (channel == null) {
+                    logger.debug("Channel '{}' not found in thing '{}'", channelName, thing.getUID());
+                    continue;
+                }
+                IntelbrasChannelHandler handler = (IntelbrasChannelHandler) thing.getHandler();
+                if (handler == null) {
+                    logger.debug("Handler for channel '{}' not found in thing '{}'", channelName, thing.getUID());
+                    continue;
+                }
+                Integer camId = handler.getCameraId();
                 String value = map.get(String.format(mapKey, camId.intValue() - 1));
                 logger.debug("Got value '{}' for channel '{}' and camera ID '{}", value, channel.getUID(), camId);
                 State state = value == null ? UnDefType.NULL : getState.apply(value);
