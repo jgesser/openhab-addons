@@ -15,7 +15,6 @@ package org.openhab.binding.semsportal.internal;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ScheduledFuture;
 
 import javax.ws.rs.core.MediaType;
 
@@ -80,8 +79,6 @@ public class PortalHandler extends BaseBridgeHandler {
     private SEMSToken sessionToken = SESSIONLESS_TOKEN;// gets the default, it is needed for the login
     private @Nullable StationStatus currentStatus;
 
-    private @Nullable ScheduledFuture<?> pollingJob;
-
     public PortalHandler(Bridge bridge, HttpClientFactory httpClientFactory) {
         super(bridge);
         httpClient = httpClientFactory.getCommonHttpClient();
@@ -107,15 +104,6 @@ public class PortalHandler extends BaseBridgeHandler {
                         "Error when loggin in. Check your username and password");
             }
         });
-    }
-
-    @Override
-    public void dispose() {
-        ScheduledFuture<?> localPollingJob = pollingJob;
-        if (localPollingJob != null) {
-            localPollingJob.cancel(true);
-        }
-        super.dispose();
     }
 
     private boolean login() {
@@ -164,10 +152,12 @@ public class PortalHandler extends BaseBridgeHandler {
     public @Nullable StationStatus getStationStatus(String stationUUID)
             throws CommunicationException, ConfigurationException {
         if (!loggedIn) {
-            if (getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
-                logger.debug("Not logged in. Not updating.");
+            if (getThing().getStatusInfo().getStatus() == ThingStatus.OFFLINE &&
+                    getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
+                logger.debug("Not logged in because of configuration error. Not updating.");
                 return null;
             }
+            logger.debug("Session is invalidated. Attempting new login.");
             if (!login()) {
                 return null;
             }
@@ -189,10 +179,6 @@ public class PortalHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
             return currentStatus;
         } else if (semsResponse.isSessionInvalid()) {
-            logger.debug("Session is invalidated. Attempting new login.");
-            if (!login()) {
-                return null;
-            }
             return getStationStatus(stationUUID);
         } else if (semsResponse.isError()) {
             throw new ConfigurationException(

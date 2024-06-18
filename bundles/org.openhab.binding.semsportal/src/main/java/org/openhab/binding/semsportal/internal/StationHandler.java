@@ -12,9 +12,18 @@
  */
 package org.openhab.binding.semsportal.internal;
 
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.*;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.ALL_CHANNELS;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_CURRENT_OUTPUT;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_LASTUPDATE;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_MONTH_TOTAL;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_OVERALL_TOTAL;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TODAY_INCOME;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TODAY_TOTAL;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TOTAL_INCOME;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.STATION_UUID;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -26,6 +35,7 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
@@ -42,6 +52,8 @@ import org.slf4j.LoggerFactory;
 public class StationHandler extends BaseThingHandler {
     private Logger logger = LoggerFactory.getLogger(StationHandler.class);
     private static final long MAX_STATUS_AGE_MINUTES = 1;
+
+    private @Nullable ScheduledFuture<?> refreshStatusTask;
 
     private @Nullable StationStatus currentStatus;
     private LocalDateTime lastUpdate = LocalDateTime.MIN;
@@ -109,14 +121,44 @@ public class StationHandler extends BaseThingHandler {
     @Override
     public void initialize() {
         updateStatus(ThingStatus.UNKNOWN);
-        scheduler.execute(() -> {
-            try {
-                scheduler.scheduleWithFixedDelay(() -> ensureRecentStatus(), 0, getUpdateInterval(), TimeUnit.MINUTES);
-            } catch (Exception e) {
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
-                        "Unable to update station info. Check Bridge status for details.");
+        startTasks();
+    }
+
+    private void startTasks() {
+        synchronized (this) {
+            if (refreshStatusTask == null) {
+                try {
+                    refreshStatusTask = scheduler.scheduleWithFixedDelay(() -> ensureRecentStatus(), 0, getUpdateInterval(), TimeUnit.MINUTES);
+                } catch (Exception e) {
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.HANDLER_INITIALIZING_ERROR,
+                            "Unable to update station info. Check Bridge status for details.");
+                }
             }
-        });
+        }
+    }
+
+    private void stopTasks() {
+        synchronized (this) {
+            if (refreshStatusTask != null) {
+                refreshStatusTask.cancel(true);
+                refreshStatusTask = null;
+            }
+        }
+    }
+
+    @Override
+    public void bridgeStatusChanged(ThingStatusInfo bridgeStatusInfo) {
+        super.bridgeStatusChanged(bridgeStatusInfo);
+        if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
+            startTasks();
+        } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
+            stopTasks();
+        }
+    }
+
+    @Override
+    public void dispose() {
+        stopTasks();
     }
 
     private long getUpdateInterval() {
