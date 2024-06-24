@@ -149,15 +149,18 @@ public class PortalHandler extends BaseBridgeHandler {
         return loggedIn;
     }
 
-    public @Nullable StationStatus getStationStatus(String stationUUID)
-            throws CommunicationException, ConfigurationException {
+    public @Nullable StationStatus getStationStatus(String stationUUID) throws CommunicationException, ConfigurationException {
+        return getStationStatus(stationUUID, false);
+    }
+
+    private @Nullable StationStatus getStationStatus(String stationUUID, boolean isRetry) throws CommunicationException, ConfigurationException {
         if (!loggedIn) {
             if (getThing().getStatusInfo().getStatus() == ThingStatus.OFFLINE &&
                     getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
                 logger.debug("Not logged in because of configuration error. Not updating.");
                 return null;
             }
-            logger.debug("Session is invalidated. Attempting new login.");
+            logger.debug("Not logged in. Attempting new login.");
             if (!login()) {
                 return null;
             }
@@ -179,7 +182,13 @@ public class PortalHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
             return currentStatus;
         } else if (semsResponse.isSessionInvalid()) {
-            return getStationStatus(stationUUID);
+            if (isRetry) {
+                logger.debug("Session is invalidated. Skipping status update until next schedule.");
+                return null;
+            } else {
+                logger.debug("Session is invalidated. Trying again.");
+                return getStationStatus(stationUUID, true);
+            }
         } else if (semsResponse.isError()) {
             throw new ConfigurationException(
                     "ERROR status code received from SEMS portal. Please check your station ID");
