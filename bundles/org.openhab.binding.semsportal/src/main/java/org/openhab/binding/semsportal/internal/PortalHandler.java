@@ -182,6 +182,7 @@ public class PortalHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
             return currentStatus;
         } else if (semsResponse.isSessionInvalid()) {
+            loggedIn = false;
             if (isRetry) {
                 logger.debug("Session is invalidated. Skipping status update until next schedule.");
                 return null;
