@@ -145,10 +145,6 @@ public class PortalHandler extends BaseBridgeHandler {
         return null;
     }
 
-    public boolean isLoggedIn() {
-        return loggedIn;
-    }
-
     public @Nullable StationStatus getStationStatus(String stationUUID) throws CommunicationException, ConfigurationException {
         return getStationStatus(stationUUID, false);
     }

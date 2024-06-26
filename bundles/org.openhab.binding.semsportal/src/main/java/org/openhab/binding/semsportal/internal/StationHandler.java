@@ -64,27 +64,16 @@ public class StationHandler extends BaseThingHandler {
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        if (isPortalOK()) {
-            if (command instanceof RefreshType) {
-                scheduler.execute(() -> {
-                    ensureRecentStatus();
+        if (command instanceof RefreshType) {
+            scheduler.execute(() -> {
+                if (ensureRecentStatus()) {
                     updateChannelState(channelUID);
-                });
-            }
+                }
+            });
         }
-    }
-
-    private boolean isPortalOK() {
-        PortalHandler portal = getPortal();
-        return portal != null && portal.isLoggedIn();
     }
 
     private void updateChannelState(ChannelUID channelUID) {
-        if (!isPortalOK()) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
-                    "Unable to update station info. Check Bridge status for details.");
-            return;
-        }
         switch (channelUID.getId()) {
             case CHANNEL_CURRENT_OUTPUT:
                 updateState(channelUID.getId(), StateHelper.getCurrentOutput(currentStatus));
@@ -112,10 +101,11 @@ public class StationHandler extends BaseThingHandler {
         }
     }
 
-    private void ensureRecentStatus() {
+    private boolean ensureRecentStatus() {
         if (lastUpdate.isBefore(LocalDateTime.now().minusMinutes(MAX_STATUS_AGE_MINUTES))) {
-            updateStation();
+            return updateStation();
         }
+        return false;
     }
 
     @Override
@@ -169,12 +159,7 @@ public class StationHandler extends BaseThingHandler {
         return portal.getUpdateInterval();
     }
 
-    private void updateStation() {
-        if (!isPortalOK()) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
-                    "Unable to update station info. Check Bridge status for details.");
-            return;
-        }
+    private boolean updateStation() {
         PortalHandler portal = getPortal();
         if (portal != null) {
             try {
@@ -182,10 +167,10 @@ public class StationHandler extends BaseThingHandler {
                 StationStatus localCurrentStatus = currentStatus;
                 if (localCurrentStatus != null && localCurrentStatus.isOperational()) {
                     updateStatus(ThingStatus.ONLINE);
-                } else {
-                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, "Station not operational");
+                    updateAllChannels();
+                    return true;
                 }
-                updateAllChannels();
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, "Station not operational");
             } catch (CommunicationException commEx) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, commEx.getMessage());
             } catch (ConfigurationException confEx) {
@@ -193,7 +178,10 @@ public class StationHandler extends BaseThingHandler {
             }
         } else {
             logger.debug("Unable to find portal for thing {}", getThing().getUID());
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.BRIDGE_OFFLINE,
+                    "Unable to update station info. Check Bridge status for details.");
         }
+        return false;
     }
 
     private String getStationUUID() {
