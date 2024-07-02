@@ -167,10 +167,11 @@ public class StationHandler extends BaseThingHandler {
                 StationStatus localCurrentStatus = currentStatus;
                 if (localCurrentStatus != null && localCurrentStatus.isOperational()) {
                     updateStatus(ThingStatus.ONLINE);
-                    updateAllChannels();
-                    return true;
+                } else {
+                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, "Station not operational");
                 }
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.OFFLINE.NONE, "Station not operational");
+                updateAllChannels();
+                return true;
             } catch (CommunicationException commEx) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, commEx.getMessage());
             } catch (ConfigurationException confEx) {
