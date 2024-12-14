@@ -61,7 +61,8 @@ import org.slf4j.helpers.MessageFormatter;
 public class IntelbrasDVRHandler extends BaseBridgeHandler {
 
     private static final String GET_CHANNEL_TITLE_URL = "cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle";
-    private static final String GET_SNAPSHOT_URL = "cgi-bin/snapshot.cgi?channel={}";
+    private static final String GET_SNAPSHOT_URL = "cgi-bin/snapshot.cgi";
+    private static final String GET_SNAPSHOT_CHANNEL_PARAM = "?channel={}";
     private static final String GET_SETCONFIG_RECORD_MODE = "cgi-bin/configManager.cgi?action=setConfig&RecordMode[{}].Mode={}";
     private static final String GET_GETCONFIG_RECORD_MODE = "cgi-bin/configManager.cgi?action=getConfig&name=RecordMode";
     private static final String KEY_CHANNEL_TITLE = "table.ChannelTitle[%d].Name";
@@ -218,10 +219,10 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
         logger.debug("Performing GET request: {}", url);
 
         ContentResponse response = httpClient.GET(url);
-        logger.debug("Received response from GET: {}, BODY: {}", response.toString());
+        logger.debug("Received response from GET: {}, STATUS: {}, BODY: {}", url, response.toString(), response.getContentAsString());
 
         if (!HttpStatus.isSuccess(response.getStatus())) {
-            throw new RuntimeException("Non success response: " + response.toString());
+            throw new RuntimeException("Non success response from GET: " + url + " : " + response.toString());
         }
 
         return response;
@@ -244,7 +245,7 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
     }
 
     public ContentResponse getSnapshot(Integer id) throws InterruptedException, ExecutionException, TimeoutException {
-        return executeGet(GET_SNAPSHOT_URL, id);
+        return executeGet(GET_SNAPSHOT_URL + (id.intValue() > 0 ? GET_SNAPSHOT_CHANNEL_PARAM : ""), id);
     }
 
     public ContentResponse setRecordMode(Integer id, Integer mode)
