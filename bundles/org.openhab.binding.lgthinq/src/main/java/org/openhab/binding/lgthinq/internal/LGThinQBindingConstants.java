@@ -69,12 +69,11 @@ public class LGThinQBindingConstants {
     public static final String V2_AUTH_PATH = "/oauth/1.0/oauth2/token";
     public static final String V2_USER_INFO = "/users/profile";
     public static final String V2_API_KEY = "VGhpblEyLjAgU0VSVklDRQ==";
-    public static final String V2_CLIENT_ID = "65260af7e8e6547b51fdccf930097c51eb9885a508d3fddfa9ee6cdec22ae1bd";
     public static final String V2_SVC_PHASE = "OP";
     public static final String V2_APP_LEVEL = "PRD";
-    public static final String V2_APP_OS = "LINUX";
+    public static final String V2_APP_OS = "ANDROID";
     public static final String V2_APP_TYPE = "NUTS";
-    public static final String V2_APP_VER = "3.0.1700";
+    public static final String V2_APP_VER = "5.0.2800";
     public static final String V2_SESSION_LOGIN_PATH = "/emp/v2.0/account/session/";
     public static final String V2_LS_PATH = "/service/application/dashboard";
     public static final String V2_DEVICE_CONFIG_PATH = "service/devices/";
@@ -105,7 +104,7 @@ public class LGThinQBindingConstants {
     public static final String APP_LEVEL = "PRD";
     public static final String APP_OS = "ANDROID";
     public static final String APP_TYPE = "NUTS";
-    public static final String APP_VER = "3.5.1200";
+    public static final String APP_VER = "5.0.2800";
 
     public static final String DEVICE_ID = "device_id";
     public static final String MODEL_NAME = "model_name";

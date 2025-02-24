@@ -18,8 +18,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.*;
 
 import javax.ws.rs.core.UriBuilder;
@@ -58,6 +62,7 @@ public abstract class LGThinQAbstractApiClientService<C extends CapabilityDefini
     protected Class<C> capabilityClass;
     protected Class<S> snapshotClass;
     protected HttpClient httpClient;
+    private String clientId = "";
 
     protected LGThinQAbstractApiClientService(Class<C> capabilityClass, Class<S> snapshotClass, HttpClient httpClient) {
         this.httpClient = httpClient;
@@ -65,14 +70,41 @@ public abstract class LGThinQAbstractApiClientService<C extends CapabilityDefini
         this.capabilityClass = capabilityClass;
         this.snapshotClass = snapshotClass;
     }
+    
+    // Método para gerar o ClientID
+    private String getClientId(String userNumber) {
+        // Retorna o ID já gerado, se existir
+        if (!clientId.isEmpty()) {
+            return clientId;
+        }
 
-    static Map<String, String> getCommonHeaders(String language, String country, String accessToken,
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            String data = userNumber + Instant.now().toString();
+            byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            clientId = bytesToHex(hash);
+            return clientId;
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException("SHA-256 algorithm not found", e);
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
+    }
+
+    Map<String, String> getCommonHeaders(String language, String country, String accessToken,
             String userNumber) {
         Map<String, String> headers = new HashMap<>();
         headers.put("Accept", "application/json");
         headers.put("Content-type", "application/json;charset=UTF-8");
         headers.put("x-api-key", V2_API_KEY);
-        headers.put("x-client-id", V2_CLIENT_ID);
+        headers.put("x-app-version", "LG ThinQ/5.0.28271"); // TODO: use constant for version
+        headers.put("x-client-id", getClientId(userNumber));
         headers.put("x-country-code", country);
         headers.put("x-language-code", language);
         headers.put("x-message-id", UUID.randomUUID().toString());
