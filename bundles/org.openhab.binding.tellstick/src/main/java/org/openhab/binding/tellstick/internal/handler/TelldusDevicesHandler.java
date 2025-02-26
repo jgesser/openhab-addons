@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,14 +15,14 @@ package org.openhab.binding.tellstick.internal.handler;
 import static org.openhab.binding.tellstick.internal.TellstickBindingConstants.*;
 
 import java.math.BigDecimal;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.Calendar;
+import java.time.Instant;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.tellstick.internal.TellstickBindingConstants;
-import org.openhab.binding.tellstick.internal.live.xml.DataTypeValue;
-import org.openhab.binding.tellstick.internal.live.xml.TellstickNetSensor;
-import org.openhab.binding.tellstick.internal.live.xml.TellstickNetSensorEvent;
+import org.openhab.binding.tellstick.internal.live.dto.DataTypeValue;
+import org.openhab.binding.tellstick.internal.live.dto.TellstickNetSensor;
+import org.openhab.binding.tellstick.internal.live.dto.TellstickNetSensorEvent;
 import org.openhab.binding.tellstick.internal.local.dto.LocalDataTypeValueDTO;
 import org.openhab.binding.tellstick.internal.local.dto.TellstickLocalSensorDTO;
 import org.openhab.binding.tellstick.internal.local.dto.TellstickLocalSensorEventDTO;
@@ -60,13 +60,14 @@ import org.tellstick.enums.DeviceType;
  *
  * @author Jarle Hjortland - Initial contribution
  */
+@NonNullByDefault
 public class TelldusDevicesHandler extends BaseThingHandler implements DeviceStatusListener {
 
     private Logger logger = LoggerFactory.getLogger(TelldusDevicesHandler.class);
-    private String deviceId;
+    private @Nullable String deviceId;
     private Boolean isDimmer = Boolean.FALSE;
     private int resend = 1;
-    private TelldusBridgeHandler bridgeHandler = null;
+    private @Nullable TelldusBridgeHandler bridgeHandler;
     private final ChannelUID stateChannel;
     private final ChannelUID dimChannel;
     private final ChannelUID humidityChannel;
@@ -227,7 +228,7 @@ public class TelldusDevicesHandler extends BaseThingHandler implements DeviceSta
         super.dispose();
     }
 
-    private Device getDevice(TelldusBridgeHandler tellHandler, String deviceId) {
+    private @Nullable Device getDevice(TelldusBridgeHandler tellHandler, @Nullable String deviceId) {
         Device dev = null;
         if (deviceId != null) {
             if (isSensor()) {
@@ -241,35 +242,35 @@ public class TelldusDevicesHandler extends BaseThingHandler implements DeviceSta
     }
 
     private boolean isSensor() {
-        return (getThing().getThingTypeUID().equals(TellstickBindingConstants.SENSOR_THING_TYPE)
+        return getThing().getThingTypeUID().equals(TellstickBindingConstants.SENSOR_THING_TYPE)
                 || getThing().getThingTypeUID().equals(TellstickBindingConstants.RAINSENSOR_THING_TYPE)
                 || getThing().getThingTypeUID().equals(TellstickBindingConstants.WINDSENSOR_THING_TYPE)
-                || getThing().getThingTypeUID().equals(TellstickBindingConstants.POWERSENSOR_THING_TYPE));
+                || getThing().getThingTypeUID().equals(TellstickBindingConstants.POWERSENSOR_THING_TYPE);
     }
 
     private void updateSensorStates(Device dev) {
-        if (dev instanceof TellstickSensor) {
+        if (dev instanceof TellstickSensor sensor) {
             updateStatus(ThingStatus.ONLINE);
-            for (DataType type : ((TellstickSensor) dev).getData().keySet()) {
-                updateSensorDataState(type, ((TellstickSensor) dev).getData(type));
+            for (DataType type : sensor.getData().keySet()) {
+                updateSensorDataState(type, sensor.getData(type));
             }
-        } else if (dev instanceof TellstickNetSensor) {
-            if (((TellstickNetSensor) dev).getOnline()) {
+        } else if (dev instanceof TellstickNetSensor netSensor) {
+            if (netSensor.getOnline()) {
                 updateStatus(ThingStatus.ONLINE);
             } else {
                 updateStatus(ThingStatus.OFFLINE);
             }
-            for (DataTypeValue type : ((TellstickNetSensor) dev).getData()) {
+            for (DataTypeValue type : netSensor.getData()) {
                 updateSensorDataState(type);
             }
-        } else if (dev instanceof TellstickLocalSensorDTO) {
-            for (LocalDataTypeValueDTO type : ((TellstickLocalSensorDTO) dev).getData()) {
+        } else if (dev instanceof TellstickLocalSensorDTO localSensor) {
+            for (LocalDataTypeValueDTO type : localSensor.getData()) {
                 updateSensorDataState(type);
             }
         }
     }
 
-    private synchronized TelldusBridgeHandler getTellstickBridgeHandler() {
+    private @Nullable synchronized TelldusBridgeHandler getTellstickBridgeHandler() {
         if (this.bridgeHandler == null) {
             logger.debug("No available bridge handler found for {} bridge {} .", deviceId, getBridge());
         }
@@ -283,22 +284,16 @@ public class TelldusDevicesHandler extends BaseThingHandler implements DeviceSta
         if (device.getUUId().equals(deviceId)) {
             if (event instanceof TellstickDeviceEvent) {
                 updateDeviceState(device);
-            } else if (event instanceof TellstickNetSensorEvent) {
-                TellstickNetSensorEvent sensorevent = (TellstickNetSensorEvent) event;
+            } else if (event instanceof TellstickNetSensorEvent sensorevent) {
                 updateSensorDataState(sensorevent.getDataTypeValue());
-            } else if (event instanceof TellstickLocalSensorEventDTO) {
-                TellstickLocalSensorEventDTO sensorevent = (TellstickLocalSensorEventDTO) event;
+            } else if (event instanceof TellstickLocalSensorEventDTO sensorevent) {
                 updateSensorDataState(sensorevent.getDataTypeValue());
-            } else if (event instanceof TellstickSensorEvent) {
-                TellstickSensorEvent sensorevent = (TellstickSensorEvent) event;
+            } else if (event instanceof TellstickSensorEvent sensorevent) {
                 updateSensorDataState(sensorevent.getDataType(), sensorevent.getData());
             } else {
                 logger.debug("Unhandled Device {}.", device.getDeviceType());
             }
-            Calendar cal = Calendar.getInstance();
-            cal.setTimeInMillis(event.getTimestamp());
-            updateState(timestampChannel,
-                    new DateTimeType(ZonedDateTime.ofInstant(cal.toInstant(), ZoneId.systemDefault())));
+            updateState(timestampChannel, new DateTimeType(Instant.ofEpochMilli(event.getTimestamp())));
         }
     }
 
@@ -356,7 +351,7 @@ public class TelldusDevicesHandler extends BaseThingHandler implements DeviceSta
                         new QuantityType<>(new BigDecimal(dataType.getValue()), WIND_SPEED_UNIT_MS));
                 break;
             case WATT:
-                if (dataType.getUnit() != null && dataType.getUnit().equals("A")) {
+                if ("A".equals(dataType.getUnit())) {
                     updateState(ampereChannel, new QuantityType<>(new BigDecimal(dataType.getValue()), ELECTRIC_UNIT));
                 } else {
                     updateState(wattChannel, new QuantityType<>(new BigDecimal(dataType.getValue()), POWER_UNIT));
@@ -409,17 +404,18 @@ public class TelldusDevicesHandler extends BaseThingHandler implements DeviceSta
         }
     }
 
-    private void updateDeviceState(Device device) {
+    private void updateDeviceState(@Nullable Device device) {
         if (device != null) {
             logger.debug("Updating state of {} {} ({}) id: {}", device.getDeviceType(), device.getName(),
                     device.getUUId(), getThing().getUID());
             TelldusBridgeHandler bridgeHandler = getTellstickBridgeHandler();
             State st = null;
-            if (bridgeHandler != null && bridgeHandler.getController() != null) {
-                st = bridgeHandler.getController().calcState(device);
+            TelldusDeviceController controller = null;
+            if (bridgeHandler != null && (controller = bridgeHandler.getController()) != null) {
+                st = controller.calcState(device);
             }
-            if (st != null && bridgeHandler != null) {
-                BigDecimal dimValue = bridgeHandler.getController().calcDimValue(device);
+            if (st != null && controller != null) {
+                BigDecimal dimValue = controller.calcDimValue(device);
                 updateState(stateChannel, st);
                 if (device instanceof DimmableDevice) {
                     updateState(dimChannel, new PercentType(dimValue));

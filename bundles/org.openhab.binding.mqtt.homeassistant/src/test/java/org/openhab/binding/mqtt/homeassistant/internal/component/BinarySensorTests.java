@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -36,37 +36,41 @@ public class BinarySensorTests extends AbstractComponentTests {
     public void test() throws InterruptedException {
         // @formatter:off
         var component = discoverComponent(configTopicToMqtt(CONFIG_TOPIC),
-                "{ " +
-                        "  \"availability\": [ " +
-                        "    { " +
-                        "      \"topic\": \"zigbee2mqtt/bridge/state\" " +
-                        "    } " +
-                        "  ], " +
-                        "  \"device\": { " +
-                        "    \"identifiers\": [ " +
-                        "      \"zigbee2mqtt_0x0000000000000000\" " +
-                        "    ], " +
-                        "    \"manufacturer\": \"Sensors inc\", " +
-                        "    \"model\": \"On Off Sensor\", " +
-                        "    \"name\": \"OnOffSensor\", " +
-                        "    \"sw_version\": \"Zigbee2MQTT 1.18.2\" " +
-                        "  }, " +
-                        "  \"name\": \"onoffsensor\", " +
-                        "  \"force_update\": \"true\", " +
-                        "  \"payload_off\": \"OFF_\", " +
-                        "  \"payload_on\": \"ON_\", " +
-                        "  \"state_topic\": \"zigbee2mqtt/sensor/state\", " +
-                        "  \"unique_id\": \"sn1\", " +
-                        "  \"value_template\": \"{{ value_json.state }}\" " +
-                        "}");
+                """
+                { \
+                  "availability": [ \
+                    { \
+                      "topic": "zigbee2mqtt/bridge/state" \
+                    } \
+                  ], \
+                  "device": { \
+                    "identifiers": [ \
+                      "zigbee2mqtt_0x0000000000000000" \
+                    ], \
+                    "manufacturer": "Sensors inc", \
+                    "model": "On Off Sensor", \
+                    "name": "OnOffSensor", \
+                    "sw_version": "Zigbee2MQTT 1.18.2" \
+                  }, \
+                  "name": "onoffsensor", \
+                  "force_update": "true", \
+                  "payload_off": "OFF_", \
+                  "payload_on": "ON_", \
+                  "state_topic": "zigbee2mqtt/sensor/state", \
+                  "unique_id": "sn1", \
+                  "value_template": "{{ value_json.state }}" \
+                }\
+                """);
         // @formatter:on
 
         assertThat(component.channels.size(), is(1));
         assertThat(component.getName(), is("onoffsensor"));
-        assertThat(component.getGroupUID().getId(), is("sn1"));
+        assertThat(component.getComponentId(), is("0x0000000000000000_binary_sensor_zigbee2mqtt"));
 
-        assertChannel(component, BinarySensor.SENSOR_CHANNEL_ID, "zigbee2mqtt/sensor/state", "", "value",
+        assertChannel(component, BinarySensor.SENSOR_CHANNEL_ID, "zigbee2mqtt/sensor/state", "", "onoffsensor",
                 OnOffValue.class);
+
+        linkAllChannels(component);
 
         publishMessage("zigbee2mqtt/sensor/state", "{ \"state\": \"ON_\" }");
         assertState(component, BinarySensor.SENSOR_CHANNEL_ID, OnOffType.ON);
@@ -82,31 +86,35 @@ public class BinarySensorTests extends AbstractComponentTests {
     public void offDelayTest() {
         // @formatter:off
         var component = discoverComponent(configTopicToMqtt(CONFIG_TOPIC),
-                "{ " +
-                        "  \"availability\": [ " +
-                        "    { " +
-                        "      \"topic\": \"zigbee2mqtt/bridge/state\" " +
-                        "    } " +
-                        "  ], " +
-                        "  \"device\": { " +
-                        "    \"identifiers\": [ " +
-                        "      \"zigbee2mqtt_0x0000000000000000\" " +
-                        "    ], " +
-                        "    \"manufacturer\": \"Sensors inc\", " +
-                        "    \"model\": \"On Off Sensor\", " +
-                        "    \"name\": \"OnOffSensor\", " +
-                        "    \"sw_version\": \"Zigbee2MQTT 1.18.2\" " +
-                        "  }, " +
-                        "  \"name\": \"onoffsensor\", " +
-                        "  \"force_update\": \"true\", " +
-                        "  \"off_delay\": \"1\", " +
-                        "  \"payload_off\": \"OFF_\", " +
-                        "  \"payload_on\": \"ON_\", " +
-                        "  \"state_topic\": \"zigbee2mqtt/sensor/state\", " +
-                        "  \"unique_id\": \"sn1\", " +
-                        "  \"value_template\": \"{{ value_json.state }}\" " +
-                        "}");
+                """
+                { \
+                  "availability": [ \
+                    { \
+                      "topic": "zigbee2mqtt/bridge/state" \
+                    } \
+                  ], \
+                  "device": { \
+                    "identifiers": [ \
+                      "zigbee2mqtt_0x0000000000000000" \
+                    ], \
+                    "manufacturer": "Sensors inc", \
+                    "model": "On Off Sensor", \
+                    "name": "OnOffSensor", \
+                    "sw_version": "Zigbee2MQTT 1.18.2" \
+                  }, \
+                  "name": "onoffsensor", \
+                  "force_update": "true", \
+                  "off_delay": "1", \
+                  "payload_off": "OFF_", \
+                  "payload_on": "ON_", \
+                  "state_topic": "zigbee2mqtt/sensor/state", \
+                  "unique_id": "sn1", \
+                  "value_template": "{{ value_json.state }}" \
+                }\
+                """);
         // @formatter:on
+
+        linkAllChannels(component);
 
         publishMessage("zigbee2mqtt/sensor/state", "{ \"state\": \"ON_\" }");
         assertState(component, BinarySensor.SENSOR_CHANNEL_ID, OnOffType.ON);
@@ -118,31 +126,35 @@ public class BinarySensorTests extends AbstractComponentTests {
     public void expireAfterTest() {
         // @formatter:off
         var component = discoverComponent(configTopicToMqtt(CONFIG_TOPIC),
-                "{ " +
-                        "  \"availability\": [ " +
-                        "    { " +
-                        "      \"topic\": \"zigbee2mqtt/bridge/state\" " +
-                        "    } " +
-                        "  ], " +
-                        "  \"device\": { " +
-                        "    \"identifiers\": [ " +
-                        "      \"zigbee2mqtt_0x0000000000000000\" " +
-                        "    ], " +
-                        "    \"manufacturer\": \"Sensors inc\", " +
-                        "    \"model\": \"On Off Sensor\", " +
-                        "    \"name\": \"OnOffSensor\", " +
-                        "    \"sw_version\": \"Zigbee2MQTT 1.18.2\" " +
-                        "  }, " +
-                        "  \"name\": \"onoffsensor\", " +
-                        "  \"expire_after\": \"1\", " +
-                        "  \"force_update\": \"true\", " +
-                        "  \"payload_off\": \"OFF_\", " +
-                        "  \"payload_on\": \"ON_\", " +
-                        "  \"state_topic\": \"zigbee2mqtt/sensor/state\", " +
-                        "  \"unique_id\": \"sn1\", " +
-                        "  \"value_template\": \"{{ value_json.state }}\" " +
-                        "}");
+                """
+                { \
+                  "availability": [ \
+                    { \
+                      "topic": "zigbee2mqtt/bridge/state" \
+                    } \
+                  ], \
+                  "device": { \
+                    "identifiers": [ \
+                      "zigbee2mqtt_0x0000000000000000" \
+                    ], \
+                    "manufacturer": "Sensors inc", \
+                    "model": "On Off Sensor", \
+                    "name": "OnOffSensor", \
+                    "sw_version": "Zigbee2MQTT 1.18.2" \
+                  }, \
+                  "name": "onoffsensor", \
+                  "expire_after": "1", \
+                  "force_update": "true", \
+                  "payload_off": "OFF_", \
+                  "payload_on": "ON_", \
+                  "state_topic": "zigbee2mqtt/sensor/state", \
+                  "unique_id": "sn1", \
+                  "value_template": "{{ value_json.state }}" \
+                }\
+                """);
         // @formatter:on
+
+        linkAllChannels(component);
 
         publishMessage("zigbee2mqtt/sensor/state", "{ \"state\": \"OFF_\" }");
         assertState(component, BinarySensor.SENSOR_CHANNEL_ID, OnOffType.OFF);

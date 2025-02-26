@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,6 +37,19 @@ public class DectHandler extends FxsHandler {
     }
 
     @Override
+    protected void internalPoll() throws FreeboxException {
+        if (isLinked(TELEPHONY_SERVICE) || isLinked(DECT_ACTIVE) || isLinked(ALTERNATE_RING)) {
+            Config config = getManager(PhoneManager.class).getConfig();
+            updateConfigChannels(config);
+        }
+
+        if (isLinked(ONHOOK) || isLinked(RINGING) || isLinked(HARDWARE_STATUS) || isLinked(GAIN_RX)
+                || isLinked(GAIN_TX)) {
+            getManager(PhoneManager.class).getStatus(getClientId()).ifPresent(this::updateStatusChannels);
+        }
+    }
+
+    @Override
     protected void updateConfigChannels(Config config) {
         super.updateConfigChannels(config);
         updateChannelOnOff(DECT_ACTIVE, config.dectEnabled());
@@ -66,15 +79,14 @@ public class DectHandler extends FxsHandler {
                 return true;
             }
         }
-        if (command instanceof PercentType) {
-            PercentType percent = (PercentType) command;
+        if (command instanceof PercentType percentCommand) {
             if (GAIN_RX.equals(channelId)) {
-                phoneManager.setGainRx(getClientId(), percent.intValue());
-                updateIfActive(GAIN_RX, percent);
+                phoneManager.setGainRx(getClientId(), percentCommand.intValue());
+                updateIfActive(GAIN_RX, percentCommand);
                 return true;
             } else if (GAIN_TX.equals(channelId)) {
-                phoneManager.setGainTx(getClientId(), percent.intValue());
-                updateIfActive(GAIN_RX, percent);
+                phoneManager.setGainTx(getClientId(), percentCommand.intValue());
+                updateIfActive(GAIN_RX, percentCommand);
                 return true;
             }
         }

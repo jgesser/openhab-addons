@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -20,7 +20,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.fineoffsetweatherstation.internal.FineOffsetGatewayConfiguration;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.Command;
-import org.openhab.binding.fineoffsetweatherstation.internal.domain.ConversionContext;
+import org.openhab.binding.fineoffsetweatherstation.internal.domain.DebugDetails;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.Protocol;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.SensorGatewayBinding;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.response.MeasuredValue;
@@ -38,13 +38,10 @@ public class ELVGatewayQueryService extends GatewayQueryService {
 
     private final FineOffsetDataParser fineOffsetDataParser;
 
-    private final ConversionContext conversionContext;
-
     public ELVGatewayQueryService(FineOffsetGatewayConfiguration config,
-            @Nullable ThingStatusListener thingStatusListener, ConversionContext conversionContext) {
+            @Nullable ThingStatusListener thingStatusListener) {
         super(config, thingStatusListener);
         this.fineOffsetDataParser = new FineOffsetDataParser(Protocol.ELV);
-        this.conversionContext = conversionContext;
     }
 
     @Override
@@ -79,6 +76,9 @@ public class ELVGatewayQueryService extends GatewayQueryService {
         if (data == null) {
             return Collections.emptyList();
         }
-        return fineOffsetDataParser.getMeasuredValues(data, conversionContext);
+        DebugDetails debugDetails = new DebugDetails(data, Command.CMD_WS980_LIVEDATA, Protocol.ELV);
+        List<MeasuredValue> measuredValues = fineOffsetDataParser.getMeasuredValues(data, debugDetails);
+        logger.trace("{}", debugDetails);
+        return measuredValues;
     }
 }

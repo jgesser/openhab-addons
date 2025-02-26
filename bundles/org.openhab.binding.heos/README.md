@@ -6,7 +6,7 @@ It also supports selecting favorites and play them on players or groups within t
 The binding first establishes a connection to one of the players of the HEOS-Network and use them as a bridge.
 After a connection is established, the binding searches for all available players and groups via the bridge.
 To keep the network traffic low it is recommended to establish only one connection via one bridge.
-Connection to the bridge is done via a Telnet connection.
+Connection to the bridge is done via a Telnet connection on port 1255.
 
 ## Supported Things
 
@@ -58,7 +58,7 @@ This is required to load the favorites, playlists and so on from personal settin
 If no login information is provided these features can't be used.
 
 ```java
-Bridge heos:bridge:main "name" [ipAddress="192.168.0.1", unsername="xxx", password="123456"]
+Bridge heos:bridge:main "name" [ipAddress="192.168.0.1", username="xxx", password="123456"]
 ```
 
 ### Player Configuration
@@ -79,7 +79,7 @@ PID behind the heos:player:--- should be changed as required.
 It is recommended to use the Player PID.
 If the PID isn't known it can be discovered by establishing a Telnet connection (port 1255) to one player and search for available players (Command: heos://player/get_players) within the network.
 Another way is to use the UI to discover the Player via the bridge and get the PID.
-For further details refer to the [HEOS CLI](https://rn.dmglobal.com/euheos/HEOS_CLI_ProtocolSpecification_2021.pdf) specification.
+For further details refer to the [HEOS CLI](https://rn.dmglobal.com/usmodel/HEOS_CLI_ProtocolSpecification-Version-1.17.pdf) specification.
 
 ### Group Configuration
 
@@ -236,14 +236,14 @@ They are added dynamically if a player is found. The player and group channels a
 Example
 
  ```java
- Switch Player_1 "Player [%s]" {channel="heos:bridge:main:P123456789"}
+Switch Player_1 "Player [%s]" {channel="heos:bridge:main:P123456789"}
  ```
 
  The {playerUID} has either a P in front of the number which indicates that this is a player or a G to indicate this is a group.
 
 ## Full Example
 
-### demo.things:
+### `demo.things` Example
 
 ```java
 Bridge heos:bridge:main "Bridge" [ipAddress="192.168.0.1", username="userName", password="123456"] {
@@ -253,7 +253,7 @@ Bridge heos:bridge:main "Bridge" [ipAddress="192.168.0.1", username="userName", 
 }
 ```
 
-### demo.items:
+### `demo.items` Example
 
 ```java
 Player LivingRoom_Control "Control" {channel="heos:player:main:LivingRoom:Control"}
@@ -338,12 +338,12 @@ Sitemap:
 Switch item=HeosKitchen_InputSelect mappings=[aux_in_1 = "Aux In" , LivingRoom = "Living Room"]
 ```
 
-### The Online status of Groups and Players
+### The Online Status of Groups and Players
 
 The online state of a Thing can be helpful for groups to control the visibility of group items within sitemap.
 So if the group is removed the visibility of those items is also changed.
 
-#### Example
+#### Groups and Players Example
 
 First you have to define a new Item within the Item section which is used later within the Sitemap:
 

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,6 +14,8 @@ package org.openhab.binding.freeboxos.internal.handler;
 
 import static org.openhab.binding.freeboxos.internal.FreeboxOsBindingConstants.*;
 import static org.openhab.core.library.unit.Units.PERCENT;
+
+import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.binding.freeboxos.internal.api.FreeboxException;
@@ -45,18 +47,17 @@ public class RevolutionHandler extends ServerHandler {
     @Override
     protected boolean internalHandleCommand(String channelId, Command command) throws FreeboxException {
         LcdManager manager = getManager(LcdManager.class);
-        Config config = manager.getConfig();
         switch (channelId) {
             case LCD_BRIGHTNESS:
-                setBrightness(manager, config, command);
+                setBrightness(manager, manager.getConfig(), command);
                 internalPoll();
                 return true;
             case LCD_ORIENTATION:
-                setOrientation(manager, config, command);
+                setOrientation(manager, manager.getConfig(), command);
                 internalPoll();
                 return true;
             case LCD_FORCED:
-                setForced(manager, config, command);
+                setForced(manager, manager.getConfig(), command);
                 internalPoll();
                 return true;
         }
@@ -66,15 +67,17 @@ public class RevolutionHandler extends ServerHandler {
     @Override
     protected void internalPoll() throws FreeboxException {
         super.internalPoll();
-        Config config = getManager(LcdManager.class).getConfig();
-        updateChannelQuantity(DISPLAY, LCD_BRIGHTNESS, config.brightness(), PERCENT);
-        updateChannelDecimal(DISPLAY, LCD_ORIENTATION, config.orientation());
-        updateChannelOnOff(DISPLAY, LCD_FORCED, config.orientationForced());
+        if (anyChannelLinked(GROUP_DISPLAY, Set.of(LCD_BRIGHTNESS, LCD_ORIENTATION, LCD_FORCED))) {
+            Config config = getManager(LcdManager.class).getConfig();
+            updateChannelQuantity(GROUP_DISPLAY, LCD_BRIGHTNESS, config.brightness(), PERCENT);
+            updateChannelDecimal(GROUP_DISPLAY, LCD_ORIENTATION, config.orientation());
+            updateChannelOnOff(GROUP_DISPLAY, LCD_FORCED, config.orientationForced());
+        }
     }
 
     private void setOrientation(LcdManager manager, Config config, Command command) throws FreeboxException {
-        if (command instanceof DecimalType) {
-            manager.setOrientation(((DecimalType) command).intValue());
+        if (command instanceof DecimalType orientation) {
+            manager.setOrientation(orientation.intValue());
         } else {
             logger.warn("Invalid command {} from channel {}", command, LCD_ORIENTATION);
         }
@@ -93,8 +96,8 @@ public class RevolutionHandler extends ServerHandler {
             manager.setBrightness(() -> config.brightness() + (command == IncreaseDecreaseType.INCREASE ? 1 : -1));
         } else if (command instanceof OnOffType) {
             manager.setBrightness(() -> command == OnOffType.ON ? 100 : 0);
-        } else if (command instanceof QuantityType) {
-            manager.setBrightness(() -> ((QuantityType<?>) command).intValue());
+        } else if (command instanceof QuantityType brightness) {
+            manager.setBrightness(() -> brightness.intValue());
         } else if (command instanceof DecimalType || command instanceof PercentType) {
             manager.setBrightness(() -> ((DecimalType) command).intValue());
         } else {

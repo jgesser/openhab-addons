@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,7 +16,6 @@ import static org.openhab.binding.verisure.internal.VerisureBindingConstants.*;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -51,7 +50,7 @@ import org.openhab.core.types.UnDefType;
 @NonNullByDefault
 public class VerisureSmartLockThingHandler extends VerisureThingHandler<VerisureSmartLocksDTO> {
 
-    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Collections.singleton(THING_TYPE_SMARTLOCK);
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Set.of(THING_TYPE_SMARTLOCK);
 
     private static final int REFRESH_DELAY_SECONDS = 10;
 
@@ -155,7 +154,7 @@ public class VerisureSmartLockThingHandler extends VerisureThingHandler<Verisure
             if (smartLock != null) {
                 BigDecimal installationId = smartLock.getSiteId();
                 try {
-                    String csrf = session.getCsrfToken(installationId);
+                    String csrf = session.getCsrfToken();
                     StringBuilder sb = new StringBuilder(deviceId);
                     sb.insert(4, "+");
                     String data;
@@ -214,7 +213,7 @@ public class VerisureSmartLockThingHandler extends VerisureThingHandler<Verisure
                         }
                         BigDecimal installationId = smartLocks.getSiteId();
                         try {
-                            String csrf = session.getCsrfToken(installationId);
+                            String csrf = session.getCsrfToken();
                             String url = SMARTLOCK_VOLUME_COMMAND;
                             String data = "keypad.volume=MEDIUM&keypad.beepOnKeypress=true&_keypad.beepOnKeypress=on&siren.volume=MEDIUM&voiceDevice.volume=MEDIUM&doorLock.volume="
                                     + volume + "&doorLock.voiceLevel=" + voiceLevel
@@ -255,7 +254,7 @@ public class VerisureSmartLockThingHandler extends VerisureThingHandler<Verisure
             VerisureSmartLockDTO smartLockJSON = smartLocksJSON.getSmartLockJSON();
             if (smartLockStatus != null) {
                 getThing().getChannels().stream().map(Channel::getUID)
-                        .filter(channelUID -> isLinked(channelUID) && !channelUID.getId().equals("timestamp"))
+                        .filter(channelUID -> isLinked(channelUID) && !"timestamp".equals(channelUID.getId()))
                         .forEach(channelUID -> {
                             State state = getValue(channelUID.getId(), doorlock, smartLockStatus, smartLockJSON);
                             updateState(channelUID, state);

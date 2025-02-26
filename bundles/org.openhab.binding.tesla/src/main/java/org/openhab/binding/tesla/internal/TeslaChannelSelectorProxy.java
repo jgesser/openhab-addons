@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -19,6 +19,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -33,6 +35,7 @@ import org.openhab.core.library.unit.SIUnits;
 import org.openhab.core.library.unit.Units;
 import org.openhab.core.types.State;
 import org.openhab.core.types.Type;
+import org.openhab.core.types.UnDefType;
 
 /**
  * The {@link TeslaChannelSelectorProxy} class is a helper class to instantiate
@@ -40,11 +43,54 @@ import org.openhab.core.types.Type;
  *
  * @author Karel Goderis - Initial contribution
  */
+@NonNullByDefault
 public class TeslaChannelSelectorProxy {
 
     public enum TeslaChannelSelector {
 
         API("api_version", "api", DecimalType.class, true),
+        AR_DESTINATION("active_route_destination", "destinationname", StringType.class, false),
+        AR_LATITUDE("active_route_latitude", "destinationlocation", DecimalType.class, false) {
+            @Override
+            public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
+                proxy.arLatitude = s;
+                return new PointType(new StringType(proxy.arLatitude), new StringType(proxy.arLongitude),
+                        new StringType(proxy.elevation));
+            }
+        },
+        AR_LONGITUDE("active_route_longitude", "destinationlocation", DecimalType.class, false) {
+            @Override
+            public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
+                proxy.arLongitude = s;
+                return new PointType(new StringType(proxy.arLatitude), new StringType(proxy.arLongitude),
+                        new StringType(proxy.elevation));
+            }
+        },
+        AR_DISTANCE_TO_ARRIVAL("active_route_miles_to_arrival", "distancetoarrival", DecimalType.class, false) {
+            @Override
+            public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
+                State someState = super.getState(s);
+                BigDecimal value = ((DecimalType) someState).toBigDecimal();
+                return new QuantityType<>(value, ImperialUnits.MILE);
+            }
+        },
+        AR_MINUTES_TO_ARRIVAL("active_route_minutes_to_arrival", "minutestoarrival", DecimalType.class, false) {
+            @Override
+            public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
+                State someState = super.getState(s);
+                BigDecimal value = ((DecimalType) someState).toBigDecimal();
+                return new QuantityType<>(value, Units.MINUTE);
+            }
+        },
+        AR_TRAFFIC_MINUTES_DELAY("active_route_traffic_minutes_delay", "trafficminutesdelay", DecimalType.class,
+                false) {
+            @Override
+            public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
+                State someState = super.getState(s);
+                BigDecimal value = ((DecimalType) someState).toBigDecimal();
+                return new QuantityType<>(value, Units.MINUTE);
+            }
+        },
         AUTO_COND("is_auto_conditioning_on", "autoconditioning", OnOffType.class, false) {
             @Override
             public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
@@ -891,15 +937,17 @@ public class TeslaChannelSelectorProxy {
             }
         },
         SOC("soc", "soc", PercentType.class, false),
+        SOFTWARE_UPDATE_STATUS("status", "softwareupdatestatus", StringType.class, false),
+        SOFTWARE_UPDATE_VERSION("version", "softwareupdateversion", StringType.class, false),
         SPEED("speed", "speed", DecimalType.class, false) {
             @Override
             public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
                 State someState = super.getState(s);
-                if (someState != null) {
+                if (someState != UnDefType.UNDEF) {
                     BigDecimal value = ((DecimalType) someState).toBigDecimal();
                     return new QuantityType<>(value, ImperialUnits.MILES_PER_HOUR);
                 } else {
-                    return null;
+                    return UnDefType.UNDEF;
                 }
             }
         },
@@ -964,7 +1012,7 @@ public class TeslaChannelSelectorProxy {
         VEHICLE_NAME("vehicle_name", "name", StringType.class, true) {
             @Override
             public State getState(String s, TeslaChannelSelectorProxy proxy, Map<String, String> properties) {
-                return super.getState(s.replaceAll("\"", ""));
+                return super.getState(s.replace("\"", ""));
             }
         },
         VALET_MODE("valet_mode", "valetmode", OnOffType.class, false) {
@@ -1018,12 +1066,12 @@ public class TeslaChannelSelectorProxy {
         },
         WHEEL_TYPE("wheel_type", "wheeltype", StringType.class, true);
 
-        private final String restID;
+        private final @Nullable String restID;
         private final String channelID;
         private Class<? extends Type> typeClass;
         private final boolean isProperty;
 
-        private TeslaChannelSelector(String restID, String channelID, Class<? extends Type> typeClass,
+        private TeslaChannelSelector(@Nullable String restID, String channelID, Class<? extends Type> typeClass,
                 boolean isProperty) {
             this.restID = restID;
             this.channelID = channelID;
@@ -1033,7 +1081,8 @@ public class TeslaChannelSelectorProxy {
 
         @Override
         public String toString() {
-            return restID;
+            String restID = this.restID;
+            return restID != null ? restID : "null";
         }
 
         public String getChannelID() {
@@ -1063,7 +1112,7 @@ public class TeslaChannelSelectorProxy {
                     | InvocationTargetException e) {
             }
 
-            return null;
+            return UnDefType.UNDEF;
         }
 
         public static TeslaChannelSelector getValueSelectorFromChannelID(String valueSelectorText)
@@ -1080,7 +1129,8 @@ public class TeslaChannelSelectorProxy {
         public static TeslaChannelSelector getValueSelectorFromRESTID(String valueSelectorText)
                 throws IllegalArgumentException {
             for (TeslaChannelSelector c : TeslaChannelSelector.values()) {
-                if (c.restID != null && c.restID.equals(valueSelectorText)) {
+                String restID = c.restID;
+                if (restID != null && restID.equals(valueSelectorText)) {
                     return c;
                 }
             }
@@ -1094,6 +1144,8 @@ public class TeslaChannelSelectorProxy {
     public String elevation = "0";
     public String nativeLatitude = "0";
     public String nativeLongitude = "0";
+    public String arLatitude = "0";
+    public String arLongitude = "0";
 
     public State getState(String s, TeslaChannelSelector selector, Map<String, String> properties) {
         return selector.getState(s, this, properties);

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -142,8 +142,13 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
                     return UnDefType.UNDEF;
                 }
                 return new DecimalType(goeResponse.transaction);
+            case AWATTAR_MAX_PRICE:
+                if (goeResponse.awattarMaxPrice == null) {
+                    return UnDefType.UNDEF;
+                }
+                return new DecimalType(goeResponse.awattarMaxPrice);
             case ALLOW_CHARGING:
-                return goeResponse.allowCharging == true ? OnOffType.ON : OnOffType.OFF;
+                return OnOffType.from(goeResponse.allowCharging);
             case TEMPERATURE_TYPE2_PORT:
                 // It was reported that the temperature is invalid when only one value is returned
                 // That's why it is checked that at least 2 values are returned
@@ -244,17 +249,23 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
         switch (channelUID.getId()) {
             case MAX_CURRENT:
                 key = "amp";
-                if (command instanceof DecimalType) {
-                    value = String.valueOf(((DecimalType) command).intValue());
+                if (command instanceof DecimalType decimalCommand) {
+                    value = String.valueOf(decimalCommand.intValue());
                 } else if (command instanceof QuantityType<?>) {
                     value = String.valueOf(((QuantityType<ElectricCurrent>) command).toUnit(Units.AMPERE).intValue());
+                }
+                break;
+            case AWATTAR_MAX_PRICE:
+                key = "awp";
+                if (command instanceof DecimalType decimalCommand) {
+                    value = String.valueOf(decimalCommand);
                 }
                 break;
             case SESSION_CHARGE_CONSUMPTION_LIMIT:
                 key = "dwo";
                 var multiplier = 1000;
-                if (command instanceof DecimalType) {
-                    value = String.valueOf(((DecimalType) command).intValue() * multiplier);
+                if (command instanceof DecimalType decimalCommand) {
+                    value = String.valueOf(decimalCommand.intValue() * multiplier);
                 } else if (command instanceof QuantityType<?>) {
                     value = String.valueOf(
                             ((QuantityType<Energy>) command).toUnit(Units.KILOWATT_HOUR).intValue() * multiplier);
@@ -262,10 +273,9 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
                 break;
             case PHASES:
                 key = "psm";
-                if (command instanceof DecimalType) {
+                if (command instanceof DecimalType decimalCommand) {
                     var phases = 1;
-                    var help = (DecimalType) command;
-                    if (help.intValue() == 3) {
+                    if (decimalCommand.intValue() == 3) {
                         // set value 2 for 3 phases
                         phases = 2;
                     }
@@ -274,14 +284,14 @@ public class GoEChargerV2Handler extends GoEChargerBaseHandler {
                 break;
             case FORCE_STATE:
                 key = "frc";
-                if (command instanceof DecimalType) {
-                    value = String.valueOf(((DecimalType) command).intValue());
+                if (command instanceof DecimalType decimalCommand) {
+                    value = String.valueOf(decimalCommand.intValue());
                 }
                 break;
             case TRANSACTION:
                 key = "trx";
-                if (command instanceof DecimalType) {
-                    value = String.valueOf(((DecimalType) command).intValue());
+                if (command instanceof DecimalType decimalCommand) {
+                    value = String.valueOf(decimalCommand.intValue());
                 }
                 break;
         }

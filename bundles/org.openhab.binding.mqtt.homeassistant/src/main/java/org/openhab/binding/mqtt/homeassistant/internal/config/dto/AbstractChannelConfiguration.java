@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -33,6 +33,7 @@ import com.google.gson.annotations.SerializedName;
 @NonNullByDefault
 public abstract class AbstractChannelConfiguration {
     public static final char PARENT_TOPIC_PLACEHOLDER = '~';
+    private static final String DEFAULT_THING_NAME = "Home Assistant Device";
 
     protected String name;
 
@@ -64,6 +65,11 @@ public abstract class AbstractChannelConfiguration {
      */
     protected @Nullable List<Availability> availability;
 
+    @SerializedName("json_attributes_template")
+    protected @Nullable String jsonAttributesTemplate;
+    @SerializedName("json_attributes_topic")
+    protected @Nullable String jsonAttributesTopic;
+
     @SerializedName(value = "~")
     protected String parentTopic = "";
 
@@ -92,6 +98,9 @@ public abstract class AbstractChannelConfiguration {
         }
         if (result == null) {
             result = name;
+        }
+        if (result == null) {
+            result = DEFAULT_THING_NAME;
         }
         return result;
     }
@@ -193,6 +202,16 @@ public abstract class AbstractChannelConfiguration {
         return availabilityMode;
     }
 
+    @Nullable
+    public String getJsonAttributesTemplate() {
+        return jsonAttributesTemplate;
+    }
+
+    @Nullable
+    public String getJsonAttributesTopic() {
+        return jsonAttributesTopic;
+    }
+
     /**
      * This class is needed, to be able to parse only the common base attributes.
      * Without this, {@link AbstractChannelConfiguration} cannot be instantiated, as it is abstract.
@@ -222,7 +241,7 @@ public abstract class AbstractChannelConfiguration {
             }
             return config;
         } catch (JsonSyntaxException e) {
-            throw new ConfigurationException("Cannot parse channel configuration JSON", e);
+            throw new ConfigurationException("Cannot parse channel configuration JSON: " + e.getMessage(), e);
         }
     }
 }

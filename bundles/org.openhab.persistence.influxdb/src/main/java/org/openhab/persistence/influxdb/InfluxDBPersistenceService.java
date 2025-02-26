@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,7 +15,6 @@ package org.openhab.persistence.influxdb;
 import static org.openhab.persistence.influxdb.internal.InfluxDBConstants.*;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -71,8 +70,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This is the implementation of the InfluxDB {@link PersistenceService}. It
- * persists item values using the <a href="http://influxdb.org">InfluxDB time
- * series database. The states ( {@link State}) of an {@link Item} are persisted
+ * persists item values using the <a href="http://influxdb.org">InfluxDB</a> time
+ * series database. The states ({@link State}) of an {@link Item} are persisted
  * by default in a time series with names equal to the name of the item.
  *
  * This addon supports 1.X and 2.X versions, as two versions are incompatible
@@ -170,7 +169,7 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
 
     @Override
     public String getLabel(@Nullable Locale locale) {
-        return "InfluxDB persistence layer";
+        return "InfluxDB";
     }
 
     @Override
@@ -199,12 +198,13 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
         store(item, date, state, null);
     }
 
+    @Override
     public void store(Item item, ZonedDateTime date, State state, @Nullable String alias) {
         if (!serviceActivated) {
             logger.warn("InfluxDB service not ready. Storing {} rejected.", item);
             return;
         }
-        convert(item, state, date.toInstant(), null).thenAccept(point -> {
+        convert(item, state, date.toInstant(), alias).thenAccept(point -> {
             if (point == null) {
                 logger.trace("Ignoring item {}, conversion to an InfluxDB point failed.", item.getName());
                 return;
@@ -233,29 +233,34 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
 
     @Override
     public Iterable<HistoricItem> query(FilterCriteria filter) {
+        return query(filter, null);
+    }
+
+    @Override
+    public Iterable<HistoricItem> query(FilterCriteria filter, @Nullable String alias) {
+        String itemName = filter.getItemName();
+        if (itemName == null) {
+            logger.warn("Item name is missing in filter {} when querying data.", filter);
+            return List.of();
+        }
         if (serviceActivated && checkConnection()) {
             logger.trace(
                     "Query-Filter: itemname: {}, ordering: {}, state: {},  operator: {}, getBeginDate: {}, getEndDate: {}, getPageSize: {}, getPageNumber: {}",
-                    filter.getItemName(), filter.getOrdering().toString(), filter.getState(), filter.getOperator(),
+                    itemName, filter.getOrdering().toString(), filter.getState(), filter.getOperator(),
                     filter.getBeginDate(), filter.getEndDate(), filter.getPageSize(), filter.getPageNumber());
-            if (filter.getItemName() == null) {
-                logger.warn("Item name is missing in filter {} when querying data.", filter);
-                return List.of();
-            }
 
             List<InfluxDBRepository.InfluxRow> results = influxDBRepository.query(filter,
-                    configuration.getRetentionPolicy());
-            return results.stream().map(this::mapRowToHistoricItem).collect(Collectors.toList());
+                    configuration.getRetentionPolicy(), alias);
+            return results.stream().map(r -> mapRowToHistoricItem(r, itemName)).collect(Collectors.toList());
         } else {
             logger.debug("Query for persisted data ignored, InfluxDB is not connected");
             return List.of();
         }
     }
 
-    private HistoricItem mapRowToHistoricItem(InfluxDBRepository.InfluxRow row) {
-        State state = InfluxDBStateConvertUtils.objectToState(row.value(), row.itemName(), itemRegistry);
-        return new InfluxDBHistoricItem(row.itemName(), state,
-                ZonedDateTime.ofInstant(row.time(), ZoneId.systemDefault()));
+    private HistoricItem mapRowToHistoricItem(InfluxDBRepository.InfluxRow row, String itemName) {
+        State state = InfluxDBStateConvertUtils.objectToState(row.value(), itemName, itemRegistry);
+        return new InfluxDBHistoricItem(row.itemName(), state, row.time());
     }
 
     @Override
@@ -285,6 +290,7 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
             if (!influxDBRepository.write(points)) {
                 logger.warn("Re-queuing {} elements, failed to write batch.", points.size());
                 pointsQueue.addAll(points);
+                influxDBRepository.disconnect();
             } else {
                 logger.trace("Wrote {} elements to database", points.size());
             }
@@ -314,8 +320,8 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
         }
 
         return CompletableFuture.supplyAsync(() -> {
-            String measurementName = storeAlias != null && !storeAlias.isBlank() ? storeAlias : itemName;
-            measurementName = influxDBMetadataService.getMeasurementNameOrDefault(itemName, measurementName);
+            String alias = storeAlias != null && !storeAlias.isBlank() ? storeAlias : itemName;
+            String measurementName = influxDBMetadataService.getMeasurementNameOrDefault(alias);
 
             if (configuration.isReplaceUnderscore()) {
                 measurementName = measurementName.replace('_', '.');
@@ -326,7 +332,7 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
             Object value = InfluxDBStateConvertUtils.stateToObject(storeState);
 
             InfluxPoint.Builder pointBuilder = InfluxPoint.newBuilder(measurementName).withTime(timeStamp)
-                    .withValue(value).withTag(TAG_ITEM_NAME, itemName);
+                    .withValue(value).withTag(TAG_ITEM_NAME, alias);
 
             if (configuration.isAddCategoryTag()) {
                 String categoryName = Objects.requireNonNullElse(category, "n/a");
@@ -342,7 +348,7 @@ public class InfluxDBPersistenceService implements ModifiablePersistenceService 
                 pointBuilder.withTag(TAG_LABEL_NAME, labelName);
             }
 
-            influxDBMetadataService.getMetaData(itemName)
+            influxDBMetadataService.getMetaData(alias)
                     .ifPresent(metadata -> metadata.getConfiguration().forEach(pointBuilder::withTag));
 
             return pointBuilder.build();

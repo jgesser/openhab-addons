@@ -8,7 +8,6 @@ Hubs of Generation 1 or 2 are handled commonly and their generation specific fea
 Gateways of Generation 3 have generation specific features which are identified with the *'Generation 3 only'* annotation and/or via the <sup>[3]</sup> mark.
 Features that are common to all generations are not annotated or marked.
 
-
 ![PowerView](doc/hdpowerview.png)
 
 PowerView shades have motorization control for their vertical position, and some also have vane controls to change the angle of their slats.
@@ -129,12 +128,13 @@ On Generation 3 gateways the signal strength is displayed in dBm (deciBel-milliW
 
 ### Channels for Repeaters (Thing type `repeater`)<sup>[1/2]</sup>
 
-| Channel         | Item Type | Description                                                                                 |
-|-----------------|-----------|---------------------------------------------------------------------------------------------|
-| color           | Color     | Controls the color of the LED ring. A switch item can be linked: ON = white, OFF = turn off |
-| brightness      | Dimmer    | Controls the brightness of the LED ring.                                                    |
-| identify        | String    | Flash repeater to identify. Valid values are: `IDENTIFY`                                    |
-| blinkingEnabled | Switch    | Blink during commands.                                                                      |
+| Channel         | Item Type | Description                                              |
+|-----------------|-----------|----------------------------------------------------------|
+| color           | Color     | Controls the color of the LED ring.                      |
+| color           | Dimmer    | Controls the brightness of the LED ring.                 |
+| color           | Switch    | Switches the LED ring on or off.                         |
+| identify        | String    | Flash repeater to identify. Valid values are: `IDENTIFY` |
+| blinkingEnabled | Switch    | Blink during commands.                                   |
 
 ### Roller Shutter Up/Down Position vs. Open/Close State
 
@@ -292,7 +292,7 @@ Repeater items<sup>[1/2]</sup>:
 
 ```java
 Color Bedroom_Repeater_Color "Bedroom Repeater Color" {channel="hdpowerview:repeater:home:r16384:color"}
-Dimmer Bedroom_Repeater_Brightness "Bedroom Repeater Brightness" {channel="hdpowerview:repeater:home:r16384:brightness"}
+Dimmer Bedroom_Repeater_Brightness "Bedroom Repeater Brightness" {channel="hdpowerview:repeater:home:r16384:color"}
 String Bedroom_Repeater_Identify "Bedroom Repeater Identify" {channel="hdpowerview:repeater:home:r16384:identify"}
 Switch Bedroom_Repeater_BlinkingEnabled "Bedroom Repeater Blinking Enabled [%s]" {channel="hdpowerview:repeater:home:r16384:blinkingEnabled"}
 ```
@@ -322,7 +322,7 @@ Switch Automation_Children_Up_Time "Children Up At 6:30" {channel="hdpowerview:h
 
 ### `demo.sitemap` File
 
-```php
+```perl
 Frame label="Living Room" {
     Switch item=Living_Room_Shades_Scene_Open
     Slider item=Living_Room_Shade_Position
