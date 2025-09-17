@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.netatmo.internal.handler.ApiBridgeHandler;
 import org.openhab.binding.netatmo.internal.handler.CommonInterface;
 import org.openhab.binding.netatmo.internal.handler.channelhelper.ChannelHelper;
@@ -35,42 +36,48 @@ public class HomeSecurityThingCapability extends Capability {
     protected final NetatmoDescriptionProvider descriptionProvider;
     protected final EventChannelHelper eventHelper;
 
-    private Optional<WebhookServlet> webhook = Optional.empty();
-    private Optional<SecurityCapability> securityCapability = Optional.empty();
-    private Optional<HomeCapability> homeCapability = Optional.empty();
+    private @Nullable WebhookServlet webhookServlet;
+    private @Nullable SecurityCapability securityCapability;
+    private @Nullable HomeCapability homeCapability;
 
     public HomeSecurityThingCapability(CommonInterface handler, NetatmoDescriptionProvider descriptionProvider,
             List<ChannelHelper> channelHelpers) {
         super(handler);
         this.descriptionProvider = descriptionProvider;
-        this.eventHelper = (EventChannelHelper) channelHelpers.stream().filter(c -> c instanceof EventChannelHelper)
-                .findFirst().orElseThrow(() -> new IllegalArgumentException(
+        this.eventHelper = channelHelpers.stream().filter(EventChannelHelper.class::isInstance)
+                .map(EventChannelHelper.class::cast).findFirst().orElseThrow(() -> new IllegalArgumentException(
                         "HomeSecurityThingCapability must find an EventChannelHelper, please file a bug report."));
         eventHelper.setModuleType(moduleType);
     }
 
     protected Optional<SecurityCapability> getSecurityCapability() {
-        if (securityCapability.isEmpty()) {
-            securityCapability = handler.getHomeCapability(SecurityCapability.class);
+        if (securityCapability == null) {
+            handler.getHomeCapability(SecurityCapability.class).ifPresent(cap -> securityCapability = cap);
             ApiBridgeHandler accountHandler = handler.getAccountHandler();
             if (accountHandler != null) {
-                webhook = accountHandler.getWebHookServlet();
-                webhook.ifPresent(servlet -> servlet.registerDataListener(handler.getId(), this));
+                webhookServlet = null;
+                accountHandler.getWebHookServlet().ifPresent(servlet -> {
+                    webhookServlet = servlet;
+                    servlet.registerDataListener(handler.getId(), this);
+                });
             }
         }
-        return securityCapability;
+        return Optional.ofNullable(securityCapability);
     }
 
     protected Optional<HomeCapability> getHomeCapability() {
-        if (homeCapability.isEmpty()) {
-            homeCapability = handler.getHomeCapability(HomeCapability.class);
+        if (homeCapability == null) {
+            handler.getHomeCapability(HomeCapability.class).ifPresent(cap -> homeCapability = cap);
         }
-        return homeCapability;
+        return Optional.ofNullable(homeCapability);
     }
 
     @Override
     public void dispose() {
-        webhook.ifPresent(servlet -> servlet.unregisterDataListener(handler.getId()));
+        WebhookServlet webhook = this.webhookServlet;
+        if (webhook != null) {
+            webhook.unregisterDataListener(handler.getId());
+        }
         super.dispose();
     }
 }

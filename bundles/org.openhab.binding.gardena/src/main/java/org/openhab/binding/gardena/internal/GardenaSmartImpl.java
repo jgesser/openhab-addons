@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -73,6 +73,7 @@ import com.google.gson.JsonSyntaxException;
 @NonNullByDefault
 public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketListener {
     private final Logger logger = LoggerFactory.getLogger(GardenaSmartImpl.class);
+    private static final int REQUEST_TIMEOUT_MS = 10_000;
 
     private Gson gson = new GsonBuilder().registerTypeAdapter(DataItem.class, new DataItemDeserializer()).create();
 
@@ -199,8 +200,8 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
             AbstractTypedContentProvider contentProvider = null;
             String contentType = "application/vnd.api+json";
             if (content != null) {
-                if (content instanceof Fields) {
-                    contentProvider = new FormContentProvider((Fields) content);
+                if (content instanceof Fields contentAsFields) {
+                    contentProvider = new FormContentProvider(contentAsFields);
                     contentType = "application/x-www-form-urlencoded";
                 } else {
                     contentProvider = new StringContentProvider(gson.toJson(content));
@@ -212,6 +213,7 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
             }
 
             Request request = httpClient.newRequest(url).method(method).header(HttpHeader.CONTENT_TYPE, contentType)
+                    .timeout(REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                     .header(HttpHeader.ACCEPT, "application/vnd.api+json").header(HttpHeader.ACCEPT_ENCODING, "gzip");
 
             if (!URL_API_TOKEN.equals(url)) {
@@ -409,7 +411,7 @@ public class GardenaSmartImpl implements GardenaSmart, GardenaSmartWebSocketList
         synchronized (this) {
             if (socket != null && !socket.isClosing()) {
                 // close socket, if still open
-                logger.info("Restarting GardenaSmart Webservice ({})", socket.getSocketID());
+                logger.debug("Restarting GardenaSmart Webservice ({})", socket.getSocketID());
                 socket.stop();
             } else {
                 // if socket is already closing, exit function and do not restart socket

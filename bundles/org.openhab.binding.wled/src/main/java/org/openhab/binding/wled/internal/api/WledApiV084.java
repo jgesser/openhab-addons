@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -218,7 +218,7 @@ public class WledApiV084 implements WledApi {
             fxOptions.add(new StateOption(Integer.toString(counter++), value));
         }
         if (handler.config.sortEffects) {
-            fxOptions.sort(Comparator.comparing(o -> o.getValue().equals("0") ? "" : o.getLabel()));
+            fxOptions.sort(Comparator.comparing(o -> "0".equals(o.getValue()) ? "" : o.getLabel()));
         }
         return fxOptions;
     }
@@ -231,7 +231,7 @@ public class WledApiV084 implements WledApi {
             palleteOptions.add(new StateOption(Integer.toString(counter++), value));
         }
         if (handler.config.sortPalettes) {
-            palleteOptions.sort(Comparator.comparing(o -> o.getValue().equals("0") ? "" : o.getLabel()));
+            palleteOptions.sort(Comparator.comparing(o -> "0".equals(o.getValue()) ? "" : o.getLabel()));
         }
         return palleteOptions;
     }
@@ -241,7 +241,7 @@ public class WledApiV084 implements WledApi {
         state.infoResponse = getInfo();
         String temp = state.infoResponse.ver;
         logger.debug("Firmware for WLED is ver:{}", temp);
-        temp = temp.replaceAll("\\.", "");
+        temp = temp.replace(".", "");
         if (temp.length() > 4) {
             temp = temp.substring(0, 4);
         }
@@ -428,7 +428,7 @@ public class WledApiV084 implements WledApi {
     }
 
     @Override
-    public void setUdpRecieve(boolean bool) throws ApiException {
+    public void setUdpReceive(boolean bool) throws ApiException {
         postState("{\"udpn\":{\"recv\":" + bool + "}}");
     }
 
@@ -537,5 +537,11 @@ public class WledApiV084 implements WledApi {
     @Override
     public void setSleepTargetBrightness(PercentType percent) throws ApiException {
         postState("{\"nl\":{\"tbri\":" + percent.toBigDecimal().multiply(BIG_DECIMAL_2_55).intValue() + "}}");
+    }
+
+    @Override
+    public void setLegacyWhite(String whiteChannel, PercentType brightness, int segmentIndex) throws ApiException {
+        // only API>0.9.0 supports segments, so we have to set the value for all stripes here
+        sendGetRequest(whiteChannel + brightness.toBigDecimal().multiply(BIG_DECIMAL_2_55));
     }
 }

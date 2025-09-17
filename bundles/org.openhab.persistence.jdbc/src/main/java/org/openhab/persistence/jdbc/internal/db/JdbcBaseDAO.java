@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -247,7 +247,9 @@ public class JdbcBaseDAO {
     }
 
     public Properties getConnectionProperties() {
-        return new Properties(this.databaseProps);
+        Properties properties = new Properties(databaseProps.size());
+        properties.putAll(databaseProps);
+        return properties;
     }
 
     /**************
@@ -255,8 +257,7 @@ public class JdbcBaseDAO {
      **************/
     public @Nullable Integer doPingDB() throws JdbcSQLException {
         try {
-            final @Nullable Integer result = Yank.queryScalar(sqlPingDB, Integer.class, null);
-            return result;
+            return Yank.queryScalar(sqlPingDB, Integer.class, null);
         } catch (YankSQLException e) {
             throw new JdbcSQLException(e);
         }
@@ -264,8 +265,7 @@ public class JdbcBaseDAO {
 
     public @Nullable String doGetDB() throws JdbcSQLException {
         try {
-            final @Nullable String result = Yank.queryScalar(sqlGetDB, String.class, null);
-            return result;
+            return Yank.queryScalar(sqlGetDB, String.class, null);
         } catch (YankSQLException e) {
             throw new JdbcSQLException(e);
         }
@@ -298,7 +298,7 @@ public class JdbcBaseDAO {
     public Long doCreateNewEntryInItemsTable(ItemsVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlCreateNewEntryInItemsTable,
                 new String[] { "#itemsManageTable#", "#itemname#" },
-                new String[] { vo.getItemsManageTable(), vo.getItemName() });
+                new String[] { formattedIdentifier(vo.getItemsManageTable()), vo.getItemName() });
         logger.debug("JDBC::doCreateNewEntryInItemsTable sql={}", sql);
         try {
             return Yank.insert(sql, null);
@@ -310,7 +310,7 @@ public class JdbcBaseDAO {
     public ItemsVO doCreateItemsTableIfNot(ItemsVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlCreateItemsTableIfNot,
                 new String[] { "#itemsManageTable#", "#colname#", "#coltype#" },
-                new String[] { vo.getItemsManageTable(), vo.getColname(), vo.getColtype() });
+                new String[] { formattedIdentifier(vo.getItemsManageTable()), vo.getColname(), vo.getColtype() });
         logger.debug("JDBC::doCreateItemsTableIfNot sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -322,7 +322,7 @@ public class JdbcBaseDAO {
 
     public ItemsVO doDropItemsTableIfExists(ItemsVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlDropItemsTableIfExists, new String[] { "#itemsManageTable#" },
-                new String[] { vo.getItemsManageTable() });
+                new String[] { formattedIdentifier(vo.getItemsManageTable()) });
         logger.debug("JDBC::doDropItemsTableIfExists sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -334,7 +334,7 @@ public class JdbcBaseDAO {
 
     public void doDropTable(String tableName) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlDropTable, new String[] { "#tableName#" },
-                new String[] { tableName });
+                new String[] { formattedIdentifier(tableName) });
         logger.debug("JDBC::doDropTable sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -346,7 +346,7 @@ public class JdbcBaseDAO {
     public void doDeleteItemsEntry(ItemsVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlDeleteItemsEntry,
                 new String[] { "#itemsManageTable#", "#itemname#" },
-                new String[] { vo.getItemsManageTable(), vo.getItemName() });
+                new String[] { formattedIdentifier(vo.getItemsManageTable()), vo.getItemName() });
         logger.debug("JDBC::doDeleteItemsEntry sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -357,7 +357,7 @@ public class JdbcBaseDAO {
 
     public List<ItemsVO> doGetItemIDTableNames(ItemsVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlGetItemIDTableNames, new String[] { "#itemsManageTable#" },
-                new String[] { vo.getItemsManageTable() });
+                new String[] { formattedIdentifier(vo.getItemsManageTable()) });
         logger.debug("JDBC::doGetItemIDTableNames sql={}", sql);
         try {
             return Yank.queryBeanList(sql, ItemsVO.class, null);
@@ -407,8 +407,8 @@ public class JdbcBaseDAO {
 
     public void doCreateItemTable(ItemVO vo) throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlCreateItemTable,
-                new String[] { "#tableName#", "#dbType#", "#tablePrimaryKey#" },
-                new String[] { vo.getTableName(), vo.getDbType(), sqlTypes.get("tablePrimaryKey") });
+                new String[] { "#tableName#", "#dbType#", "#tablePrimaryKey#" }, new String[] {
+                        formattedIdentifier(vo.getTableName()), vo.getDbType(), sqlTypes.get("tablePrimaryKey") });
         logger.debug("JDBC::doCreateItemTable sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -420,8 +420,8 @@ public class JdbcBaseDAO {
     public void doAlterTableColumn(String tableName, String columnName, String columnType, boolean nullable)
             throws JdbcSQLException {
         String sql = StringUtilsExt.replaceArrayMerge(sqlAlterTableColumn,
-                new String[] { "#tableName#", "#columnName#", "#columnType#" },
-                new String[] { tableName, columnName, nullable ? columnType : columnType + " NOT NULL" });
+                new String[] { "#tableName#", "#columnName#", "#columnType#" }, new String[] {
+                        formattedIdentifier(tableName), columnName, nullable ? columnType : columnType + " NOT NULL" });
         logger.debug("JDBC::doAlterTableColumn sql={}", sql);
         try {
             Yank.execute(sql, null);
@@ -434,7 +434,7 @@ public class JdbcBaseDAO {
         ItemVO storedVO = storeItemValueProvider(item, itemState, vo);
         String sql = StringUtilsExt.replaceArrayMerge(sqlInsertItemValue,
                 new String[] { "#tableName#", "#tablePrimaryValue#" },
-                new String[] { storedVO.getTableName(), sqlTypes.get("tablePrimaryValue") });
+                new String[] { formattedIdentifier(storedVO.getTableName()), sqlTypes.get("tablePrimaryValue") });
         Object[] params = { storedVO.getValue(), storedVO.getValue() };
         logger.debug("JDBC::doStoreItemValue sql={} value='{}'", sql, storedVO.getValue());
         try {
@@ -447,7 +447,8 @@ public class JdbcBaseDAO {
     public void doStoreItemValue(Item item, State itemState, ItemVO vo, ZonedDateTime date) throws JdbcSQLException {
         ItemVO storedVO = storeItemValueProvider(item, itemState, vo);
         String sql = StringUtilsExt.replaceArrayMerge(sqlInsertItemValue,
-                new String[] { "#tableName#", "#tablePrimaryValue#" }, new String[] { storedVO.getTableName(), "?" });
+                new String[] { "#tableName#", "#tablePrimaryValue#" },
+                new String[] { formattedIdentifier(storedVO.getTableName()), "?" });
         java.sql.Timestamp timestamp = new java.sql.Timestamp(date.toInstant().toEpochMilli());
         Object[] params = { timestamp, storedVO.getValue(), storedVO.getValue() };
         logger.debug("JDBC::doStoreItemValue sql={} timestamp={} value='{}'", sql, timestamp, storedVO.getValue());
@@ -474,9 +475,9 @@ public class JdbcBaseDAO {
         }
         // we already retrieve the unit here once as it is a very costly operation
         String itemName = item.getName();
-        Unit<? extends Quantity<?>> unit = item instanceof NumberItem ? ((NumberItem) item).getUnit() : null;
+        Unit<? extends Quantity<?>> unit = item instanceof NumberItem numberItem ? numberItem.getUnit() : null;
         return m.stream()
-                .map(o -> new JdbcHistoricItem(itemName, objectAsState(item, unit, o[1]), objectAsZonedDateTime(o[0])))
+                .map(o -> new JdbcHistoricItem(itemName, objectAsState(item, unit, o[1]), objectAsInstant(o[0])))
                 .collect(Collectors.<HistoricItem> toList());
     }
 
@@ -492,7 +493,7 @@ public class JdbcBaseDAO {
 
     public long doGetRowCount(String tableName) throws JdbcSQLException {
         final String sql = StringUtilsExt.replaceArrayMerge(sqlGetRowCount, new String[] { "#tableName#" },
-                new String[] { tableName });
+                new String[] { formattedIdentifier(tableName) });
         logger.debug("JDBC::doGetRowCount sql={}", sql);
         try {
             final @Nullable Long result = Yank.queryScalar(sql, Long.class, null);
@@ -521,8 +522,8 @@ public class JdbcBaseDAO {
         // SELECT time, ROUND(value,3) FROM number_item_0114 ORDER BY time DESC LIMIT 0,1
         // rounding HALF UP
         String queryString = "NUMBERITEM".equalsIgnoreCase(simpleName) && numberDecimalcount > -1
-                ? "SELECT time, ROUND(value," + numberDecimalcount + ") FROM " + table
-                : "SELECT time, value FROM " + table;
+                ? "SELECT time, ROUND(value," + numberDecimalcount + ") FROM " + formattedIdentifier(table)
+                : "SELECT time, value FROM " + formattedIdentifier(table);
         if (!filterString.isEmpty()) {
             queryString += filterString;
         }
@@ -534,29 +535,34 @@ public class JdbcBaseDAO {
         logger.debug("JDBC::histItemFilterDeleteProvider filter = {}, table = {}", filter, table);
 
         String filterString = resolveTimeFilter(filter, timeZone);
-        String deleteString = filterString.isEmpty() ? "TRUNCATE TABLE " + table
-                : "DELETE FROM " + table + filterString;
+        String deleteString = filterString.isEmpty() ? "TRUNCATE TABLE " + formattedIdentifier(table)
+                : "DELETE FROM " + formattedIdentifier(table) + filterString;
         logger.debug("JDBC::delete deleteString = {}", deleteString);
         return deleteString;
     }
 
     protected String resolveTimeFilter(FilterCriteria filter, ZoneId timeZone) {
         String filterString = "";
-        if (filter.getBeginDate() != null) {
+        ZonedDateTime beginDate = filter.getBeginDate();
+        if (beginDate != null) {
             filterString += filterString.isEmpty() ? " WHERE" : " AND";
-            filterString += " TIME>='" + JDBC_DATE_FORMAT.format(filter.getBeginDate().withZoneSameInstant(timeZone))
-                    + "'";
+            filterString += " TIME>='" + JDBC_DATE_FORMAT.format(beginDate.withZoneSameInstant(timeZone)) + "'";
         }
-        if (filter.getEndDate() != null) {
+        ZonedDateTime endDate = filter.getEndDate();
+        if (endDate != null) {
             filterString += filterString.isEmpty() ? " WHERE" : " AND";
-            filterString += " TIME<='" + JDBC_DATE_FORMAT.format(filter.getEndDate().withZoneSameInstant(timeZone))
-                    + "'";
+            filterString += " TIME<='" + JDBC_DATE_FORMAT.format(endDate.withZoneSameInstant(timeZone)) + "'";
         }
         return filterString;
     }
 
     private String updateItemTableNamesProvider(ItemVO itemTable) {
-        String queryString = "ALTER TABLE " + itemTable.getTableName() + " RENAME TO " + itemTable.getNewTableName();
+        String newTableName = itemTable.getNewTableName();
+        if (newTableName == null) {
+            throw new IllegalArgumentException("New table name is not provided");
+        }
+        String queryString = "ALTER TABLE " + formattedIdentifier(itemTable.getTableName()) + " RENAME TO "
+                + formattedIdentifier(newTableName);
         logger.debug("JDBC::query queryString = {}", queryString);
         return queryString;
     }
@@ -590,10 +596,10 @@ public class JdbcBaseDAO {
                 break;
             case "NUMBERITEM":
                 State convertedState = itemState;
-                if (item instanceof NumberItem && itemState instanceof QuantityType) {
-                    Unit<? extends Quantity<?>> unit = ((NumberItem) item).getUnit();
+                if (item instanceof NumberItem numberItem && itemState instanceof QuantityType<?> quantityState) {
+                    Unit<? extends Quantity<?>> unit = numberItem.getUnit();
                     if (unit != null && !Units.ONE.equals(unit)) {
-                        convertedState = ((QuantityType<?>) itemState).toUnit(unit);
+                        convertedState = quantityState.toUnit(unit);
                         if (convertedState == null) {
                             logger.warn(
                                     "JDBC::storeItemValueProvider: Failed to convert state '{}' to unit '{}'. Please check your item definition for correctness.",
@@ -605,7 +611,7 @@ public class JdbcBaseDAO {
                 String it = getSqlTypes().get(itemType);
                 if (it == null) {
                     logger.warn("JDBC::storeItemValueProvider: No SQL type defined for item type {}", itemType);
-                } else if (it.toUpperCase().contains("DOUBLE")) {
+                } else if (it.toUpperCase().contains("DOUBLE") || (it.toUpperCase().contains("FLOAT"))) {
                     vo.setValueTypes(it, java.lang.Double.class);
                     double value = ((Number) convertedState).doubleValue();
                     logger.debug("JDBC::storeItemValueProvider: newVal.doubleValue: '{}'", value);
@@ -635,8 +641,7 @@ public class JdbcBaseDAO {
                 break;
             case "DATETIMEITEM":
                 vo.setValueTypes(getSqlTypes().get(itemType), java.sql.Timestamp.class);
-                java.sql.Timestamp d = new java.sql.Timestamp(
-                        ((DateTimeType) itemState).getZonedDateTime().toInstant().toEpochMilli());
+                java.sql.Timestamp d = new java.sql.Timestamp(((DateTimeType) itemState).getInstant().toEpochMilli());
                 logger.debug("JDBC::storeItemValueProvider: DateTimeItem: '{}'", d);
                 vo.setValue(d);
                 break;
@@ -668,19 +673,19 @@ public class JdbcBaseDAO {
             if (it == null) {
                 throw new UnsupportedOperationException("No SQL type defined for item type NUMBERITEM");
             }
-            if (it.toUpperCase().contains("DOUBLE")) {
-                return unit == null ? new DecimalType(((Number) v).doubleValue())
-                        : QuantityType.valueOf(((Number) v).doubleValue(), unit);
+            if (it.toUpperCase().contains("DOUBLE") || (it.toUpperCase().contains("FLOAT"))) {
+                return unit == null ? new DecimalType(objectAsNumber(v).doubleValue())
+                        : QuantityType.valueOf(objectAsNumber(v).doubleValue(), unit);
             } else if (it.toUpperCase().contains("DECIMAL") || it.toUpperCase().contains("NUMERIC")) {
-                return unit == null ? new DecimalType((BigDecimal) v)
-                        : QuantityType.valueOf(((BigDecimal) v).doubleValue(), unit);
+                return unit == null ? new DecimalType(objectAsBigDecimal(v))
+                        : QuantityType.valueOf(objectAsBigDecimal(v).doubleValue(), unit);
             } else if (it.toUpperCase().contains("INT")) {
                 return unit == null ? new DecimalType(objectAsInteger(v))
-                        : QuantityType.valueOf(((Integer) v).doubleValue(), unit);
+                        : QuantityType.valueOf(objectAsInteger(v).doubleValue(), unit);
             }
             return unit == null ? DecimalType.valueOf(objectAsString(v)) : QuantityType.valueOf(objectAsString(v));
         } else if (item instanceof DateTimeItem) {
-            return new DateTimeType(objectAsZonedDateTime(v));
+            return new DateTimeType(objectAsInstant(v));
         } else if (item instanceof ColorItem) {
             return HSBType.valueOf(objectAsString(v));
         } else if (item instanceof DimmerItem || item instanceof RollershutterItem) {
@@ -688,13 +693,17 @@ public class JdbcBaseDAO {
         } else if (item instanceof ImageItem) {
             return RawType.valueOf(objectAsString(v));
         } else if (item instanceof ContactItem || item instanceof PlayerItem || item instanceof SwitchItem) {
-            State state = TypeParser.parseState(item.getAcceptedDataTypes(), ((String) v).toString().trim());
+            State state = TypeParser.parseState(item.getAcceptedDataTypes(), objectAsString(v).trim());
             if (state == null) {
                 throw new UnsupportedOperationException("Unable to parse state for item " + item.toString());
             }
             return state;
         } else {
-            State state = TypeParser.parseState(item.getAcceptedDataTypes(), ((String) v).toString());
+            if (!(v instanceof String objectAsString)) {
+                throw new UnsupportedOperationException(
+                        "Type '" + v.getClass().getName() + "' is not supported for item " + item.toString());
+            }
+            State state = TypeParser.parseState(item.getAcceptedDataTypes(), objectAsString);
             if (state == null) {
                 throw new UnsupportedOperationException("Unable to parse state for item " + item.toString());
             }
@@ -702,49 +711,69 @@ public class JdbcBaseDAO {
         }
     }
 
-    protected ZonedDateTime objectAsZonedDateTime(Object v) {
-        if (v instanceof Long) {
-            return ZonedDateTime.ofInstant(Instant.ofEpochMilli(((Number) v).longValue()), ZoneId.systemDefault());
-        } else if (v instanceof java.sql.Date) {
-            return ZonedDateTime.ofInstant(Instant.ofEpochMilli(((java.sql.Date) v).getTime()), ZoneId.systemDefault());
-        } else if (v instanceof LocalDateTime) {
-            return ((LocalDateTime) v).atZone(ZoneId.systemDefault());
-        } else if (v instanceof Instant) {
-            return ((Instant) v).atZone(ZoneId.systemDefault());
-        } else if (v instanceof java.sql.Timestamp) {
-            return ((java.sql.Timestamp) v).toInstant().atZone(ZoneId.systemDefault());
-        } else if (v instanceof java.lang.String) {
-            return ZonedDateTime.ofInstant(java.sql.Timestamp.valueOf(v.toString()).toInstant(),
-                    ZoneId.systemDefault());
-        }
-        throw new UnsupportedOperationException("Date of type " + v.getClass().getName() + " is not supported");
+    protected Instant objectAsInstant(Object o) {
+        return switch (o) {
+            case Long l -> Instant.ofEpochMilli(l.longValue());
+            case java.sql.Date d -> Instant.ofEpochMilli(d.getTime());
+            case LocalDateTime ldt -> ldt.atZone(ZoneId.systemDefault()).toInstant();
+            case Instant i -> i;
+            case java.sql.Timestamp ts -> ts.toInstant();
+            case java.lang.String s -> java.sql.Timestamp.valueOf(s).toInstant();
+            default -> throw new UnsupportedOperationException(
+                    "Date of type '" + o.getClass().getName() + "' is not supported");
+        };
     }
 
-    protected Integer objectAsInteger(Object v) {
-        if (v instanceof Byte) {
-            return ((Byte) v).intValue();
-        }
-        return ((Integer) v).intValue();
+    protected Integer objectAsInteger(Object o) {
+        return switch (o) {
+            case Byte b -> b.intValue();
+            case Integer i -> i;
+            case BigDecimal bd -> bd.intValue();
+            default -> throw new UnsupportedOperationException(
+                    "Integer of type '" + o.getClass().getName() + "' is not supported");
+        };
     }
 
-    protected String objectAsString(Object v) {
-        if (v instanceof byte[]) {
-            return new String((byte[]) v);
-        }
-        return ((String) v).toString();
+    protected Number objectAsNumber(Object o) {
+        return switch (o) {
+            case Number n -> n;
+            default -> throw new UnsupportedOperationException(
+                    "Number of type '" + o.getClass().getName() + "' is not supported");
+        };
     }
 
-    public String getItemType(Item i) {
+    protected BigDecimal objectAsBigDecimal(Object o) {
+        return switch (o) {
+            case BigDecimal bd -> bd;
+            default -> throw new UnsupportedOperationException(
+                    "BigDecimal of type '" + o.getClass().getName() + "' is not supported");
+        };
+    }
+
+    protected String objectAsString(Object o) {
+        return switch (o) {
+            case byte[] b -> new String(b);
+            case String s -> s;
+            default -> throw new UnsupportedOperationException(
+                    "String of type '" + o.getClass().getName() + "' is not supported");
+        };
+    }
+
+    protected String formattedIdentifier(String identifier) {
+        return identifier;
+    }
+
+    private String getItemType(Item i) {
         Item item = i;
         String def = "STRINGITEM";
-        if (i instanceof GroupItem) {
-            item = ((GroupItem) i).getBaseItem();
+        if (i instanceof GroupItem groupItem) {
+            item = groupItem.getBaseItem();
             if (item == null) {
                 // if GroupItem:<ItemType> is not defined in *.items using StringType
                 logger.debug(
                         "JDBC::getItemType: Cannot detect ItemType for {} because the GroupItems' base type isn't set in *.items File.",
                         i.getName());
-                Iterator<Item> iterator = ((GroupItem) i).getMembers().iterator();
+                Iterator<Item> iterator = groupItem.getMembers().iterator();
                 if (!iterator.hasNext()) {
                     logger.debug(
                             "JDBC::getItemType: No Child-Members of GroupItem {}, use ItemType for STRINGITEM as Fallback",

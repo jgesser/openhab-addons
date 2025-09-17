@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,6 +17,7 @@ import static org.openhab.binding.broadlinkthermostat.internal.BroadlinkBindingC
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -68,8 +69,7 @@ public class BroadlinkDiscoveryService extends AbstractDiscoveryService {
     }
 
     private void createScanner() {
-
-        long timestampOfLastScan = getTimestampOfLastScan();
+        Instant timestampOfLastScan = getTimestampOfLastScan();
         BLDevice[] blDevices = new BLDevice[0];
         try {
             @Nullable
@@ -90,7 +90,7 @@ public class BroadlinkDiscoveryService extends AbstractDiscoveryService {
                     Integer.toHexString(dev.getDeviceType()), dev.getHost(), dev.getMac());
 
             ThingUID thingUID;
-            String id = dev.getHost().replaceAll("\\.", "-");
+            String id = dev.getHost().replace(".", "-");
             logger.debug("Device ID with IP address replacement: {}", id);
             try {
                 id = getHostnameWithoutDomain(InetAddress.getByName(dev.getHost()).getHostName());
@@ -187,11 +187,11 @@ public class BroadlinkDiscoveryService extends AbstractDiscoveryService {
         if (hostname.matches(broadlinkRegex)) {
             String[] dotSeparatedString = hostname.split("\\.");
             logger.debug("Found original broadlink DNS name {}, removing domain", hostname);
-            return dotSeparatedString[0].replaceAll("\\.", "-");
+            return dotSeparatedString[0].replace(".", "-");
         } else {
             logger.debug("DNS name does not match original broadlink name: {}, using it without modification. ",
                     hostname);
-            return hostname.replaceAll("\\.", "-");
+            return hostname.replace(".", "-");
         }
     }
 }

@@ -7,6 +7,7 @@
 	<bridge-type id="bridge">
 		<label>Pilight Bridge</label>
 		<description>Pilight Bridge which connects to a Pilight instance.</description>
+		<semantic-equipment-tag>NetworkAppliance</semantic-equipment-tag>
 
 		<properties>
 			<property name="firmwareVersion">-</property>
@@ -31,6 +32,12 @@
 					Recommended value with band pass filter: somewhere between 200-500.</description>
 				<default>500</default>
 				<advanced>true</advanced>
+			</parameter>
+			<parameter name="backgroundDiscovery" type="boolean">
+				<label>Background Discovery</label>
+				<description>Whether Pilight devices for this bridge should automatically be discovered.</description>
+				<advanced>true</advanced>
+				<default>true</default>
 			</parameter>
 		</config-description>
 	</bridge-type>

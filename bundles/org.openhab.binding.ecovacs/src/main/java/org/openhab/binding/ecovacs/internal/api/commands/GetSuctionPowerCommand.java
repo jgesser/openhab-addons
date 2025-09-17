@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -30,7 +30,6 @@ import com.google.gson.Gson;
 @NonNullByDefault
 public class GetSuctionPowerCommand extends IotDeviceCommand<SuctionPower> {
     public GetSuctionPowerCommand() {
-        super();
     }
 
     @Override
@@ -41,8 +40,8 @@ public class GetSuctionPowerCommand extends IotDeviceCommand<SuctionPower> {
     @Override
     public SuctionPower convertResponse(AbstractPortalIotCommandResponse response, ProtocolVersion version, Gson gson)
             throws DataParsingException {
-        if (response instanceof PortalIotCommandJsonResponse) {
-            SpeedReport resp = ((PortalIotCommandJsonResponse) response).getResponsePayloadAs(gson, SpeedReport.class);
+        if (response instanceof PortalIotCommandJsonResponse jsonResponse) {
+            SpeedReport resp = jsonResponse.getResponsePayloadAs(gson, SpeedReport.class);
             return SuctionPower.fromJsonValue(resp.speedLevel);
         } else {
             String payload = ((PortalIotCommandXmlResponse) response).getResponsePayloadXml();

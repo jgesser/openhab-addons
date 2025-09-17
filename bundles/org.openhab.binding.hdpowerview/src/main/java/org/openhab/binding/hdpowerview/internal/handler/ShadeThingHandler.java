@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,6 +37,7 @@ import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.types.StopMoveType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.types.UpDownType;
+import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -116,8 +117,8 @@ public class ShadeThingHandler extends BaseThingHandler {
         try {
             switch (channelUID.getId()) {
                 case CHANNEL_SHADE_POSITION:
-                    if (command instanceof PercentType) {
-                        position.setPosition(PRIMARY_POSITION, ((PercentType) command));
+                    if (command instanceof PercentType percentCommand) {
+                        position.setPosition(PRIMARY_POSITION, percentCommand);
                         webTargets.moveShade(shadeId, new Shade().setShadePosition(position));
                         break;
                     } else if (command instanceof UpDownType) {
@@ -134,8 +135,8 @@ public class ShadeThingHandler extends BaseThingHandler {
                     throw new IllegalArgumentException(INVALID_COMMAND);
 
                 case CHANNEL_SHADE_SECONDARY_POSITION:
-                    if (command instanceof PercentType) {
-                        position.setPosition(SECONDARY_POSITION, ((PercentType) command));
+                    if (command instanceof PercentType percentCommand) {
+                        position.setPosition(SECONDARY_POSITION, percentCommand);
                         webTargets.moveShade(shadeId, new Shade().setShadePosition(position));
                         break;
                     } else if (command instanceof UpDownType) {
@@ -153,8 +154,8 @@ public class ShadeThingHandler extends BaseThingHandler {
                     throw new IllegalArgumentException(INVALID_COMMAND);
 
                 case CHANNEL_SHADE_VANE:
-                    if (command instanceof PercentType) {
-                        position.setPosition(VANE_TILT_POSITION, ((PercentType) command));
+                    if (command instanceof PercentType percentCommand) {
+                        position.setPosition(VANE_TILT_POSITION, percentCommand);
                         webTargets.moveShade(shadeId, new Shade().setShadePosition(position));
                         break;
                     } else if (command instanceof UpDownType) {
@@ -166,7 +167,8 @@ public class ShadeThingHandler extends BaseThingHandler {
                     throw new IllegalArgumentException(INVALID_COMMAND);
 
                 case CHANNEL_SHADE_COMMAND:
-                    if ((command instanceof StringType) && COMMAND_IDENTIFY.equals(((StringType) command).toString())) {
+                    if ((command instanceof StringType stringCommand)
+                            && COMMAND_IDENTIFY.equals(stringCommand.toString())) {
                         webTargets.jogShade(shadeId);
                         break;
                     }
@@ -223,6 +225,9 @@ public class ShadeThingHandler extends BaseThingHandler {
                 updateCapabilities(shade);
                 updateProperties(shade);
                 updateDynamicChannels(shade);
+                if (shade.getType() instanceof Integer type && ShadeCapabilitiesDatabase.DRAPES_TYPES.contains(type)) {
+                    updateThing(editThing().withSemanticEquipmentTag(Equipment.DRAPES).build());
+                }
                 isInitialized = true;
             }
             updateChannels(shade);

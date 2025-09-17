@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -116,7 +116,7 @@ public class AnthemHandler extends BaseThingHandler {
 
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
-        logger.trace("Command {} received for channel {}", command, channelUID.getId().toString());
+        logger.trace("Command {} received for channel {}", command, channelUID.getId());
         String groupId = channelUID.getGroupId();
         if (groupId == null) {
             return;
@@ -166,8 +166,8 @@ public class AnthemHandler extends BaseThingHandler {
                 }
                 break;
             case CHANNEL_VOLUME_DB:
-                if (command instanceof DecimalType) {
-                    sendCommand(AnthemCommand.volume(zone, ((DecimalType) command).intValue()));
+                if (command instanceof DecimalType decimalCommand) {
+                    sendCommand(AnthemCommand.volume(zone, decimalCommand.intValue()));
                 }
                 break;
             case CHANNEL_MUTE:
@@ -180,8 +180,8 @@ public class AnthemHandler extends BaseThingHandler {
                 }
                 break;
             case CHANNEL_ACTIVE_INPUT:
-                if (command instanceof DecimalType) {
-                    sendCommand(AnthemCommand.activeInput(zone, ((DecimalType) command).intValue()));
+                if (command instanceof DecimalType decimalCommand) {
+                    sendCommand(AnthemCommand.activeInput(zone, decimalCommand.intValue()));
                 }
                 break;
             default:
@@ -242,12 +242,12 @@ public class AnthemHandler extends BaseThingHandler {
             scheduleConnectRetry(reconnectIntervalMinutes);
             return;
         }
-        Thread localReaderThread = new Thread(this::readerThreadJob, "Anthem reader");
+        Thread localReaderThread = new Thread(this::readerThreadJob, "OH-binding-" + getThing().getUID() + "-Reader");
         localReaderThread.setDaemon(true);
         localReaderThread.start();
         this.readerThread = localReaderThread;
 
-        Thread localSenderThread = new Thread(this::senderThreadJob, "Anthem sender");
+        Thread localSenderThread = new Thread(this::senderThreadJob, "OH-binding-" + getThing().getUID() + "-Sender");
         localSenderThread.setDaemon(true);
         localSenderThread.start();
         this.senderThread = localSenderThread;

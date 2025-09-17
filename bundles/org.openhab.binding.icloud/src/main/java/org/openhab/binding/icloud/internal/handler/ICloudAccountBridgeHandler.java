@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -112,16 +112,13 @@ public class ICloudAccountBridgeHandler extends BaseBridgeHandler {
             authState = AuthState.INITIAL;
         }
 
-        this.iCloudDeviceInformationCache = new ExpiringCache<>(CACHE_EXPIRY, () -> {
-            return callApiWithRetryAndExceptionHandling(() -> {
+        this.iCloudDeviceInformationCache = new ExpiringCache<>(CACHE_EXPIRY,
+                () -> callApiWithRetryAndExceptionHandling(() ->
                 // callApiWithRetryAndExceptionHanlding ensures that iCloudService is not null when the following is
                 // called. Cannot use method local iCloudService instance here, because instance may be replaced with a
                 // new
                 // one during retry.
-                return iCloudService.getDevices().refreshClient();
-            });
-
-        });
+                iCloudService.getDevices().refreshClient()));
 
         updateStatus(ThingStatus.UNKNOWN);
 
@@ -201,7 +198,7 @@ public class ICloudAccountBridgeHandler extends BaseBridgeHandler {
                     updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                     return null;
                 } catch (Exception e) {
-                    logger.debug("Unexpected exception occured", e);
+                    logger.debug("Unexpected exception occurred", e);
                     updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
                     return null;
                 }

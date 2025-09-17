@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,6 +16,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
@@ -113,18 +114,16 @@ public class RuuviGatewayDiscoveryTests {
         }));
 
         assertTrue(//
-                discoveryResults.stream().anyMatch(result -> {
-                    return "DE:EA:DB:BE:FF:00"
-                            .equals(result.getProperties().get(RuuviGatewayBindingConstants.PROPERTY_TAG_ID))
-                            && "ruuvi/foo/bar/de:ea:DB:be:ff:00".equals(result.getProperties()
-                                    .get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TOPIC));
-                }) && //
-                        discoveryResults.stream().anyMatch(result -> {
-                            return "DE:EA:DB:BE:FF:01"
-                                    .equals(result.getProperties().get(RuuviGatewayBindingConstants.PROPERTY_TAG_ID))
-                                    && "ruuvi/foo/bar/de:ea:DB:be:ff:01".equals(result.getProperties()
-                                            .get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TOPIC));
-                        })
+                discoveryResults.stream().anyMatch(result -> "DE:EA:DB:BE:FF:00"
+                        .equals(result.getProperties().get(RuuviGatewayBindingConstants.PROPERTY_TAG_ID))
+                        && "ruuvi/foo/bar/de:ea:DB:be:ff:00".equals(
+                                result.getProperties().get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TOPIC)))
+                        && //
+                        discoveryResults.stream()
+                                .anyMatch(result -> "DE:EA:DB:BE:FF:01".equals(
+                                        result.getProperties().get(RuuviGatewayBindingConstants.PROPERTY_TAG_ID))
+                                        && "ruuvi/foo/bar/de:ea:DB:be:ff:01".equals(result.getProperties()
+                                                .get(RuuviGatewayBindingConstants.CONFIGURATION_PROPERTY_TOPIC)))
 
                 , "Failed to match: " + discoveryResults.toString());
     }
@@ -147,7 +146,7 @@ public class RuuviGatewayDiscoveryTests {
         }
 
         @Override
-        public @Nullable Collection<ThingUID> removeOlderResults(DiscoveryService source, long timestamp,
+        public @Nullable Collection<ThingUID> removeOlderResults(DiscoveryService source, Instant timestamp,
                 @Nullable Collection<ThingTypeUID> thingTypeUIDs, @Nullable ThingUID bridgeUID) {
             return Collections.emptyList();
         }

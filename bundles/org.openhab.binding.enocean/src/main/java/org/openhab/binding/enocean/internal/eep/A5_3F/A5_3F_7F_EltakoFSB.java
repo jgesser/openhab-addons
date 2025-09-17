@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -44,7 +44,6 @@ public class A5_3F_7F_EltakoFSB extends _4BSMessage {
     static final byte DOWN = 0x50;
 
     public A5_3F_7F_EltakoFSB() {
-        super();
     }
 
     public A5_3F_7F_EltakoFSB(ERP1Message packet) {
@@ -61,36 +60,38 @@ public class A5_3F_7F_EltakoFSB extends _4BSMessage {
             shutTime = Math.min(255, config.as(EnOceanChannelRollershutterConfig.class).shutTime);
         }
 
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             State channelState = getCurrentStateFunc.apply(channelId);
-
-            PercentType target = (PercentType) command;
-            if (target.intValue() == PercentType.ZERO.intValue()) {
+            if (percentCommand.intValue() == PercentType.ZERO.intValue()) {
                 setData(ZERO, (byte) shutTime, MOVE_UP, TEACHIN_BIT); // => move completely up
-            } else if (target.intValue() == PercentType.HUNDRED.intValue()) {
+            } else if (percentCommand.intValue() == PercentType.HUNDRED.intValue()) {
                 setData(ZERO, (byte) shutTime, MOVE_DOWN, TEACHIN_BIT); // => move completely down
-            } else if (channelState != null) {
+            } else {
                 PercentType current = channelState.as(PercentType.class);
                 if (current != null) {
-                    if (current.intValue() != target.intValue()) {
-                        byte direction = current.intValue() > target.intValue() ? MOVE_UP : MOVE_DOWN;
+                    if (current.intValue() != percentCommand.intValue()) {
+                        byte direction = current.intValue() > percentCommand.intValue() ? MOVE_UP : MOVE_DOWN;
                         byte duration = (byte) Math.min(255,
-                                (Math.abs(current.intValue() - target.intValue()) * shutTime)
+                                (Math.abs(current.intValue() - percentCommand.intValue()) * shutTime)
                                         / PercentType.HUNDRED.intValue());
 
-                        setData(ZERO, duration, direction, TEACHIN_BIT);
+                        if (duration == 0) {
+                            setData(ZERO, (byte) 0xFF, STOP, TEACHIN_BIT);
+                        } else {
+                            setData(ZERO, duration, direction, TEACHIN_BIT);
+                        }
                     }
                 }
             }
 
-        } else if (command instanceof UpDownType) {
-            if ((UpDownType) command == UpDownType.UP) {
+        } else if (command instanceof UpDownType upDownCommand) {
+            if (upDownCommand == UpDownType.UP) {
                 setData(ZERO, (byte) shutTime, MOVE_UP, TEACHIN_BIT); // => 0 percent
-            } else if ((UpDownType) command == UpDownType.DOWN) {
+            } else if (upDownCommand == UpDownType.DOWN) {
                 setData(ZERO, (byte) shutTime, MOVE_DOWN, TEACHIN_BIT); // => 100 percent
             }
-        } else if (command instanceof StopMoveType) {
-            if ((StopMoveType) command == StopMoveType.STOP) {
+        } else if (command instanceof StopMoveType stopMoveCommand) {
+            if (stopMoveCommand == StopMoveType.STOP) {
                 setData(ZERO, (byte) 0xFF, STOP, TEACHIN_BIT);
             }
         }

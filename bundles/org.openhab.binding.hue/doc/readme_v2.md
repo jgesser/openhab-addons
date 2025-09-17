@@ -7,7 +7,7 @@
 The binding supports `bridge-api2`, `device`, `room`, and `zone` thing types.
 The `bridge-api2` thing type represents the Hue Bridge which is the server for all other things.
 The `device` thing type represents a piece of physical equipment in the home.
-Such `device` things may contain either a *light*, a *button*, or (one or more) *sensors*.
+Such `device` things may contain either a _light_, a _button_, or (one or more) _sensors_.
 Lights can be of any type from a simple on/off light, through dimmable monochrome lights, to full colour dimmable lights.
 Buttons are devices having one or more push buttons.
 Sensors can be (for example) light level sensors, temperature sensors, or motion sensors.
@@ -55,39 +55,66 @@ See [console command](#console-command-for-finding-resourceids)
 
 The configuration of all things (as described above) is the same regardless of whether it is a device containing a light, a button, or (one or more) sensors, or whether it is a room or zone.
 
+### Channels for Bridges
+
+Bridge Things support the following channels:
+
+| Channel ID                                      | Item Type          | Description                                 |
+|-------------------------------------------------|--------------------|---------------------------------------------|
+| automation#11111111-2222-3333-4444-555555555555 | Switch             | Enable / disable the respective automation. |
+
+The Bridge dynamically creates `automation` channels corresponding to the automations in the Hue App;
+the '11111111-2222-3333-4444-555555555555' is the unique id of the respective automation.
+
 ### Channels for Devices
 
 Device things support some of the following channels:
 
-| Channel ID            | Item Type          | Description                                                                                                         |
-|-----------------------|--------------------|---------------------------------------------------------------------------------------------------------------------|
-| color                 | Color              | Supports full color control with hue, saturation and brightness values, or brightness only, or switching on or off. |
-| brightness            | Dimmer             | Supports control of the brightness value, or switching on or off.                                                   |
-| color-temperature     | Dimmer             | Supports control of the color temperature in percent from cold (0%) to warm (100%).                                 |
-| color-temperature-abs | Number:Temperature | Supports control of the color temperature via a QuantityType having a temperature unit e.g. Kelvin. (Advanced)      |
-| switch                | Switch             | Supports switching the device on and off.                                                                           |
-| dynamics              | Number:Time        | Sets the duration of dynamic transitions between light states. (Advanced)                                           |
-| alert                 | String             | Allows setting an alert on a light e.g. flashing them. (Advanced)                                                   |
-| effect                | String             | Allows setting an effect on a light e.g. 'candle' effect. (Advanced)                                                |
-| button-last-event     | (String)           | Informs which button was last pressed in the device. (Trigger Channel)                                              |
-| rotary-steps          | (String)           | Informs about the number of rotary steps of the last rotary dial movement. (Trigger Channel)                        |
-| motion                | Switch             | Shows if motion has been detected by the sensor. (Read Only)                                                        |
-| motion-enabled        | Switch             | Supports enabling / disabling the motion sensor. (Advanced)                                                         |
-| light-level           | Number:Illuminance | Shows the current light level measured by the sensor. (Read Only)                                                   |
-| light-level-enabled   | Switch             | Supports enabling / disabling the light level sensor. (Advanced)                                                    |
-| temperature           | Number:Temperature | Shows the current temperature measured by the sensor. (Read Only)                                                   |
-| temperature-enabled   | Switch             | Supports enabling / disabling the temperature sensor. (Advanced)                                                    |
-| battery-level         | Number             | Shows the battery level. (Read Only)                                                                                |
-| battery-low           | Switch             | Indicates whether the battery is low or not. (Read Only)                                                            |
-| last-updated          | DateTime           | The date and time when the thing state was last updated. (Read Only) (Advanced)                                     |
-| color-xy-only         | Color              | Allows access to the `color-xy` parameter of the light(s) only. Has no impact on `dimming` or `on-off` parameters.  |
-| dimming-only          | Dimmer             | Allows access to the `dimming` parameter of the light(s) only. Has no impact on `color-xy` or `on-off` parameters.  |
-| on-off-only           | Switch             | Allows access to the `on-off` parameter of the light(s) only. Has no impact on `color-xy` or `dimming` parameters.  |
+| Channel ID                    | Item Type          | Description                                                                                                         |
+|-------------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------|
+| color                         | Color              | Supports full color control with hue, saturation and brightness values, or brightness only, or switching on or off. |
+| brightness                    | Dimmer             | Supports control of the brightness value, or switching on or off.                                                   |
+| color-temperature             | Dimmer             | Supports control of the color temperature in percent from cold (0%) to warm (100%).                                 |
+| color-temperature-abs         | Number:Temperature | Supports control of the color temperature via a QuantityType having a temperature unit e.g. Kelvin. (Advanced)      |
+| switch                        | Switch             | Supports switching the device on and off.                                                                           |
+| dynamics                      | Number:Time        | Sets the duration of dynamic transitions between light states. (Advanced)                                           |
+| alert                         | String             | Allows setting an alert on a light e.g. flashing them. (Advanced)                                                   |
+| effect                        | String             | Allows setting an effect on a light e.g. 'candle' effect. (Advanced)                                                |
+| button-last-event             | (String)           | Informs which button was last pressed in the device. (Trigger Channel)                                              |
+| button-last-updated           | DateTime           | The date and time when a button was last pressed. (Read Only) (Advanced)                                            |
+| rotary-steps                  | (String)           | Informs about the number of rotary steps of the last rotary dial movement. (Trigger Channel)                        |
+| rotary-steps-last-updated     | DateTime           | The date and time when the rotary steps were last updated. (Read Only) (Advanced)                                   |
+| motion                        | Switch             | Shows if motion has been detected by the sensor. (Read Only)                                                        |
+| motion-enabled                | Switch             | Supports enabling / disabling the motion sensor. (Advanced)                                                         |
+| motion-last-updated           | DateTime           | The date and time when the motion value was last updated. (Read Only) (Advanced)                                    |
+| light-level                   | Number:Illuminance | Shows the current light level measured by the sensor. (Read Only)                                                   |
+| light-level-last-updated      | DateTime           | The date and time when the light level was last updated. (Read Only) (Advanced)                                     |
+| light-level-enabled           | Switch             | Supports enabling / disabling the light level sensor. (Advanced)                                                    |
+| temperature                   | Number:Temperature | Shows the current temperature measured by the sensor. (Read Only)                                                   |
+| temperature-last-updated      | DateTime           | The date and time when the temperature was last updated. (Read Only) (Advanced)                                     |
+| temperature-enabled           | Switch             | Supports enabling / disabling the temperature sensor. (Advanced)                                                    |
+| battery-level                 | Number             | Shows the battery level. (Read Only)                                                                                |
+| battery-low                   | Switch             | Indicates whether the battery is low or not. (Read Only)                                                            |
+| last-updated                  | DateTime           | The date and time when the thing state was last updated. (Read Only) (Advanced)                                     |
+| color-xy-only                 | Color              | Allows access to the `color-xy` parameter of the light(s) only. Has no impact on `dimming` or `on-off` parameters.  |
+| dimming-only                  | Dimmer             | Allows access to the `dimming` parameter of the light(s) only. Has no impact on `color-xy` or `on-off` parameters.  |
+| on-off-only                   | Switch             | Allows access to the `on-off` parameter of the light(s) only. Has no impact on `color-xy` or `dimming` parameters.  |
+| security-contact              | Contact            | Indicates whether a security contact has been triggered. (Read Only)                                                |
+| security-contact-enabled      | Switch             | Supports enabling / disabling the security contact. (Advanced)                                                      |
+| security-contact-last-updated | DateTime           | The date and time when the security contact state was last updated. (Read Only) (Advanced)                          |
+| security-tamper               | Contact            | Indicates whether a security tamper contact has been triggered. `Open` means tampering detected. (Read Only)        |
+| security-tamper-last-updated  | DateTime           | The date and time when the security tamper contact state was last updated. (Read Only) (Advanced)                   |
 
 The exact list of channels in a given device is determined at run time when the system is started.
 Each device reports its own live list of capabilities, and the respective list of channels is created accordingly.
 
-The channels `color-xy-only`,  `dimming-only` and `on-off-only` are *advanced* channels - see [below](###advanced-channels-for-devices-,-rooms-and-zones) for more details.
+The channels `color-xy-only`, `dimming-only` and `on-off-only` are _advanced_ channels - see [below](#advanced-channels-for-devices-rooms-and-zones) for more details.
+
+The `effect` channel is an amalgamation of 'normal' and 'timed' effects.
+To activate a 'normal' effect, the binding sends a single command to activate the respective effect.
+To activate a 'timed' effect, the binding sends a first command to set the timing followed a second command to activate the effect.
+You can explicitly send the timing command via the [dynamics channel](#the-dynamics-channel) before you send the effect command.
+Or otherwise the binding will send a default timing command of 15 minutes.
 
 The `button-last-event` channel is a trigger channel.
 When the button is pressed the channel receives a number as calculated by the following formula:
@@ -140,6 +167,7 @@ When you set a value for the `dynamics` channel (e.g. 2000 milliseconds) and the
 When the `dynamics` channel value is changed, it triggers a time window of ten seconds during which the value is active.
 If the second command is sent within the active time window, it will be executed gradually according to the `dynamics` channel value.
 However, if the second command is sent after the active time window has expired, then it will be executed immediately.
+If the second command is a 'timed' effect, then the dynamics duration will be applied to that effect.
 
 ### Advanced Channels for Devices, Rooms and Zones
 
@@ -179,14 +207,14 @@ openhab> openhab:hue hue:bridge-api2:g24 things > myThingsFile.things
 This binding includes a rule action, which implements dynamic (i.e. gradual) transitions to a new scene or light(s) state.
 Each thing has a separate action instance, which can be retrieved as follows.
 
-```php
+```java
 val hueActions = getActions("hue","hue:device:g24:11111111-2222-3333-4444-555555555555")
 ```
 
 Where the first parameter must always be `hue` and the second must be the full thing UID.
 Once the action instance has been retrieved, you can invoke its `dynamicCommand(String channelId, Command command, Long durationMs)` method as follows.
 
-```php
+```java
 hueActions.dynamicCommand("brightness", new PercentType(100), new Long(10000))
 
 hueActions.dynamicCommand("scene", new StringType("SceneName"), new Long(20000))
@@ -200,7 +228,7 @@ hueActions.dynamicCommand("scene", new StringType("SceneName"), new Long(20000))
 
 ## Full Example
 
-### demo.things:
+### demo.things
 
 ```java
 Bridge hue:bridge-api2:g24 "Philips Hue Hub" @ "Home" [ipAddress="192.168.1.234", applicationKey="abcdefghijklmnopqrstuvwxyz0123456789ABCD"] {
@@ -211,18 +239,18 @@ Bridge hue:bridge-api2:g24 "Philips Hue Hub" @ "Home" [ipAddress="192.168.1.234"
 }
 ```
 
-### demo.items:
+### demo.items
 
 ```java
 Color Living_Room_Standard_Lamp_Left_Colour "Living Room Standard Lamp Left Colour" {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:color"}
 Dimmer Living_Room_Standard_Lamp_Left_Brightness "Living Room Standard Lamp Left Brightness [%.0f %%]" {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:brightness"}
 Switch Living_Room_Standard_Lamp_Left_Switch "Living Room Standard Lamp Left Switch" (g_Lights_On_Count) {channel="hue:device:g24:11111111-2222-3333-4444-555555555555:switch"}
 
-Number Kitchen_Wallplate_Switch_Last_Event "Kitchen Wallplate Switch Last Event" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:button-last-event"}
+String Kitchen_Wallplate_Switch_Last_Event "Kitchen Wallplate Switch Last Event" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:button-last-event"}
 Switch Kitchen_Wallplate_Switch_Battery_Low_Alarm "Kitchen Wallplate Switch Battery Low Alarm" {channel="hue:device:g24:11111111-2222-3333-4444-666666666666:battery-low"}
 ```
 
-### demo.sitemap:
+### demo.sitemap
 
 ```perl
 sitemap demo label="Hue" {

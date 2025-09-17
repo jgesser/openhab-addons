@@ -32,6 +32,8 @@ Any home automation system based on the OverKiz API is potentially supported.
 - rain sensors (OPEN/CLOSE contact)
 - temperature sensors (get temperature)
 - electricity sensors (get energy consumption)
+- carbon dioxide sensors (get CO2 concentration)
+- noise sensors (get noise)
 - door locks (LOCK/UNLOCK, OPEN/CLOSE commands)
 - heating systems (control temperature, set heating level)
 - valve heating systems (control temperature, derogation mode and temperature)
@@ -52,7 +54,7 @@ Both Somfy Tahoma and Somfy Connexoon gateways have been confirmed working in th
 To start a discovery, just
 
 - Add a new bridge thing.
-- Configure the bridge selecting your cloud portal (www.tahomalink.com by default) and setting your email (login) and password to the cloud portal.
+- Configure the bridge selecting your cloud portal (<www.tahomalink.com> by default) and setting your email (login) and password to the cloud portal.
 
 If the supplied credentials are correct, the automatic discovery can be used to scan and detect your devices which will appear in your Inbox.
 If you are missing some device, check the debug log during the discovery and create an issue with the information about an unsupported thing from the log.
@@ -75,7 +77,7 @@ If you are missing some device, check the debug log during the discovery and cre
 | Gateway PIN    | pin           | Optional          | Gateway PIN in format ABCD-EFGH-IJKL, relevant only if developer mode is enabled     |
 | Local token    | token         | Optional          | Token for local communication, relevant only if developer mode is enabled            |
 
-For more information about the developer mode please see https://github.com/Somfy-Developer/Somfy-TaHoma-Developer-Mode.
+For more information about the developer mode please see <https://github.com/Somfy-Developer/Somfy-TaHoma-Developer-Mode>.
 If the gateway ip or pin are not provided, the binding tries to detect it automatically and saves it into the configuration.
 If the local token is not provided, the binding creates the local token automatically and saves it into the configuration.
 Please note that the action groups (scenarios) control does not work in local mode due to missing support in the gateway firmware.
@@ -99,7 +101,7 @@ Please see the example below.
 ## Channels
 
 | Thing                                                                              | Channel                         | Note                                                                                                                                                                                                                              |
-| ---------------------------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|------------------------------------------------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | bridge                                                                             | N.A                             | bridge does not expose any channel                                                                                                                                                                                                |
 | gateway                                                                            | status                          | status of your gateway                                                                                                                                                                                                            |
 | gateway                                                                            | scenarios                       | used to run the scenarios defined in the cloud portal                                                                                                                                                                             |
@@ -111,7 +113,8 @@ Please see the example below.
 | window                                                                             | control                         | device controller which reacts to commands UP/DOWN/ON/OFF/OPEN/CLOSE/STOP + closure 0-100                                                                                                                                         |
 | silent roller shutter                                                              | silent_control                  | similar to control channel but in silent mode                                                                                                                                                                                     |
 | venetian blind, adjustable slats roller shutter, bioclimatic pergola               | orientation                     | percentual orientation of the blind's slats, it can have value 0-100. For IO Homecontrol devices only (non RTS)                                                                                                                   |
-| venetian blind, adjustable slats roller shutter                                    | closure_orientation             | percentual closure and orientation of the blind's slats, it can have value 0-100. For IO Homecontrol devices only (non RTS)                                                                                                       |
+| venetian blind, up/down venetian blind, adjustable slats roller shutter            | closure_orientation             | percentual closure and orientation of the blind's slats, it can have value 0-100. For IO Homecontrol devices only (non RTS)                                                                                                       |
+| up/down venetian blind                                                             | tilt                            | tilt of the blind's slats, it can have value -5 to 5 (negative or positive tilt). Works even for RTS blinds                                                                                                                       |
 | adjustable slats roller shutter                                                    | rocker                          | used for setting the rocker position of the roller shutter, the only position allowing the slats control                                                                                                                          |
 | bioclimatic pergola                                                                | slats                           | slats state (open/closed)                                                                                                                                                                                                         |
 | bioclimatic pergola                                                                | pergola_command                 | used for controlling biclimatic pergola (closeSlats, openSlats, stop)                                                                                                                                                             |
@@ -126,6 +129,8 @@ Please see the example below.
 | light sensor                                                                       | luminance                       | light luminance value in luxes                                                                                                                                                                                                    |
 | electricity sensor                                                                 | energy_consumption              | energy consumption value in watts                                                                                                                                                                                                 |
 | humidity sensor                                                                    | humidity                        | current relative humidity                                                                                                                                                                                                         |
+| carbon dioxide sensor                                                              | co2_concentration               | CO2 concentration in ppm                                                                                                                                                                                                          |
+| noise sensor                                                                       | noise                           | noise in decibel                                                                                                                                                                                                                  |
 | dock                                                                               | battery_status                  | indicates running on battery (yes/no)                                                                                                                                                                                             |
 | dock                                                                               | battery_level                   | remaining battery percentage                                                                                                                                                                                                      |
 | dock                                                                               | siren_status                    | used for controlling and getting siren state (on, off, cyclic)                                                                                                                                                                    |

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -11,6 +11,8 @@
  * SPDX-License-Identifier: EPL-2.0
  */
 package org.openhab.binding.homematic.internal.model;
+
+import java.util.Map;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.homematic.internal.misc.MiscUtils;
@@ -32,6 +34,7 @@ public class HmDatapoint implements Cloneable {
     private HmParamsetType paramsetType;
     private Number minValue;
     private Number maxValue;
+    private Map<String, Number> specialValues;
     private String[] options;
     private boolean readOnly;
     private boolean readable;
@@ -304,6 +307,17 @@ public class HmDatapoint implements Cloneable {
     }
 
     /**
+     * Sets map of values with special meaning
+     */
+    public void setSpecialValues(Map<String, Number> specialValues) {
+        this.specialValues = specialValues;
+    }
+
+    public Map<String, Number> getSpecialValues() {
+        return specialValues;
+    }
+
+    /**
      * Returns true, if the datapoint is a virtual datapoint.
      */
     public boolean isVirtual() {
@@ -426,9 +440,10 @@ public class HmDatapoint implements Cloneable {
 
     @Override
     public String toString() {
-        return String.format("%s[name=%s,value=%s,defaultValue=%s,type=%s,minValue=%s,maxValue=%s,options=%s,"
-                + "readOnly=%b,readable=%b,unit=%s,description=%s,info=%s,paramsetType=%s,virtual=%b,trigger=%b]",
-                getClass().getSimpleName(), name, value, defaultValue, type, minValue, maxValue,
+        return String.format("""
+                %s[name=%s,value=%s,defaultValue=%s,type=%s,minValue=%s,maxValue=%s,options=%s,\
+                readOnly=%b,readable=%b,unit=%s,description=%s,info=%s,paramsetType=%s,virtual=%b,trigger=%b]\
+                """, getClass().getSimpleName(), name, value, defaultValue, type, minValue, maxValue,
                 (options == null ? null : String.join(";", options)), readOnly, readable, unit, description, info,
                 paramsetType, virtual, trigger);
     }

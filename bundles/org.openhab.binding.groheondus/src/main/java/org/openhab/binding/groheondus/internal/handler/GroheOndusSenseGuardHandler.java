@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -23,6 +23,7 @@ import static org.openhab.binding.groheondus.internal.GroheOndusBindingConstants
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -100,7 +101,6 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
                 newState = new QuantityType<>(lastMeasurement.getTemperatureGuard(), SIUnits.CELSIUS);
                 break;
             case CHANNEL_VALVE_OPEN:
-
                 OnOffType valveOpenType = getValveOpenType(appliance);
                 if (valveOpenType != null) {
                     newState = valveOpenType;
@@ -123,8 +123,8 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
         ZonedDateTime latestWithdrawal = earliestWithdrawal.plus(1, ChronoUnit.DAYS);
 
         Double waterConsumption = dataPoint.getWithdrawals().stream()
-                .filter(e -> earliestWithdrawal.isBefore(e.starttime.toInstant().atZone(ZoneId.systemDefault()))
-                        && latestWithdrawal.isAfter(e.starttime.toInstant().atZone(ZoneId.systemDefault())))
+                .filter(e -> earliestWithdrawal.isBefore(LocalDate.parse(e.date).atStartOfDay(ZoneId.systemDefault()))
+                        && latestWithdrawal.isAfter(LocalDate.parse(e.date).atStartOfDay(ZoneId.systemDefault())))
                 .mapToDouble(withdrawal -> withdrawal.getWaterconsumption()).sum();
         return new QuantityType<>(waterConsumption, Units.LITRE);
     }
@@ -132,7 +132,7 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
     private QuantityType<Volume> sumWaterConsumption(Data dataPoint) {
         Double waterConsumption = dataPoint.getWithdrawals().stream()
                 .mapToDouble(withdrawal -> withdrawal.getWaterconsumption()).sum();
-        return new QuantityType<Volume>(waterConsumption, Units.LITRE);
+        return new QuantityType<>(waterConsumption, Units.LITRE);
     }
 
     private Measurement getLastMeasurement(Data dataPoint) {
@@ -153,14 +153,14 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
             logger.debug("Could not get appliance command", e);
             return null;
         }
-        if (!commandOptional.isPresent()) {
+        if (commandOptional.isEmpty()) {
             return null;
         }
         if (commandOptional.get().getType() != Appliance.TYPE) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "@text/error.notsenseguard");
             return null;
         }
-        return ((ApplianceCommand) commandOptional.get()).getCommand().getValveOpen() ? OnOffType.ON : OnOffType.OFF;
+        return OnOffType.from(((ApplianceCommand) commandOptional.get()).getCommand().getValveOpen());
     }
 
     @Override
@@ -176,8 +176,8 @@ public class GroheOndusSenseGuardHandler<T, M> extends GroheOndusBaseHandler<App
             return new Data();
         }
         Data data = applianceData.getData();
-        Collections.sort(data.measurement, Comparator.comparing(e -> ZonedDateTime.parse(e.timestamp)));
-        Collections.sort(data.withdrawals, Comparator.comparing(e -> e.starttime));
+        Collections.sort(data.measurement, Comparator.comparing(e -> e.date));
+        Collections.sort(data.withdrawals, Comparator.comparing(e -> e.date));
         return data;
     }
 

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.concurrent.Future;
 
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.homematic.internal.HomematicBindingConstants;
 import org.openhab.binding.homematic.internal.common.HomematicConfig;
 import org.openhab.binding.homematic.internal.communicator.HomematicGateway;
 import org.openhab.binding.homematic.internal.converter.ConverterException;
@@ -347,10 +346,11 @@ public class HomematicThingHandler extends BaseThingHandler {
             if (dp != null && dp.getChannel().getDevice().isOffline()) {
                 logger.warn("Device '{}' is OFFLINE, can't send command '{}' for channel '{}'",
                         dp.getChannel().getDevice().getAddress(), command, channelUID);
-                logger.trace("{}", ex.getMessage(), ex);
             } else {
-                logger.error("{}", ex.getMessage(), ex);
+                logger.error("Sending command '{}' for channel '{}' to device '{}' failed: {}", command, channelUID,
+                        dp.getChannel().getDevice().getAddress(), ex.getMessage());
             }
+            logger.trace("{}", ex.getMessage(), ex);
         } catch (ConverterTypeException ex) {
             logger.warn("{}, please check the item type and the commands in your scripts", ex.getMessage());
         } catch (Exception ex) {
@@ -372,8 +372,10 @@ public class HomematicThingHandler extends BaseThingHandler {
      * @param datapointName The datapoint that will be updated on the device
      * @param currentValue The current value of the datapoint
      * @param newValue The value that will be sent to the device
-     * @return The rxMode ({@link HomematicBindingConstants#RX_BURST_MODE "BURST"} for burst mode,
-     *         {@link HomematicBindingConstants#RX_WAKEUP_MODE "WAKEUP"} for wakeup mode, or null for the default mode)
+     * @return The rxMode ({@link org.openhab.binding.homematic.internal.HomematicBindingConstants#RX_BURST_MODE
+     *         "BURST"} for burst mode,
+     *         {@link org.openhab.binding.homematic.internal.HomematicBindingConstants#RX_WAKEUP_MODE "WAKEUP"} for
+     *         wakeup mode, or null for the default mode)
      */
     protected String getRxModeForDatapointTransmission(String datapointName, Object currentValue, Object newValue) {
         return null;
@@ -445,7 +447,19 @@ public class HomematicThingHandler extends BaseThingHandler {
             if (minValid && maxValid) {
                 return dp.getValue();
             }
-            logger.warn("Value for datapoint {} is outside of valid range, using default value for config.", dp);
+
+            Map<String, Number> specialValues = dp.getSpecialValues();
+            if (specialValues != null) {
+                Number value = dp.isFloatType() ? dp.getDoubleValue() : dp.getIntegerValue();
+                for (Number special : specialValues.values()) {
+                    if (value.equals(special)) {
+                        return dp.getValue();
+                    }
+                }
+            }
+            logger.warn(
+                    "Value for datapoint {} of device {} is outside of valid range, using default value for config.",
+                    dp, dp.getChannel().getDevice().getAddress());
             return dp.getDefaultValue();
         }
         return dp.getValue();
@@ -594,15 +608,14 @@ public class HomematicThingHandler extends BaseThingHandler {
                     if (dp != null) {
                         try {
                             if (newValue != null) {
-                                if (newValue instanceof BigDecimal) {
-                                    final BigDecimal decimal = (BigDecimal) newValue;
+                                if (newValue instanceof BigDecimal decimal) {
                                     if (dp.isIntegerType()) {
                                         newValue = decimal.intValue();
                                     } else if (dp.isFloatType()) {
                                         newValue = decimal.doubleValue();
                                     }
-                                } else if (newValue instanceof String && dp.isEnumType()) {
-                                    newValue = dp.getOptionIndex((String) newValue);
+                                } else if (newValue instanceof String string && dp.isEnumType()) {
+                                    newValue = dp.getOptionIndex(string);
                                 }
                                 if (!Objects.equals(dp.getValue(), newValue)) {
                                     sendDatapoint(dp, new HmDatapointConfig(), newValue);

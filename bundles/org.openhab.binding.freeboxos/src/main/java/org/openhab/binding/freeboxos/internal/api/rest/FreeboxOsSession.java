@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -51,8 +51,11 @@ public class FreeboxOsSession {
     private @NonNullByDefault({}) UriBuilder uriBuilder;
     private @Nullable Session session;
     private String appToken = "";
+    private int wsReconnectInterval;
+    @Nullable
+    private Boolean vmSupported;
 
-    public static enum BoxModel {
+    public enum BoxModel {
         FBXGW_R1_FULL, // Freebox Server (v6) revision 1
         FBXGW_R2_FULL, // Freebox Server (v6) revision 2
         FBXGW_R1_MINI, // Freebox Mini revision 1
@@ -60,7 +63,7 @@ public class FreeboxOsSession {
         FBXGW_R1_ONE, // Freebox One revision 1
         FBXGW_R2_ONE, // Freebox One revision 2
         FBXGW7_R1_FULL, // Freebox v7 revision 1
-        UNKNOWN;
+        UNKNOWN
     }
 
     public static record ApiVersion(String apiBaseUrl, @Nullable String apiDomain, String apiVersion, BoxModel boxModel,
@@ -83,7 +86,10 @@ public class FreeboxOsSession {
         ApiVersion version = apiHandler.executeUri(config.getUriBuilder(API_VERSION_PATH).build(), HttpMethod.GET,
                 ApiVersion.class, null, null);
         this.uriBuilder = config.getUriBuilder(version.baseUrl());
+        this.wsReconnectInterval = config.wsReconnectInterval;
+        this.vmSupported = null;
         getManager(LoginManager.class);
+        getManager(SystemManager.class);
         getManager(NetShareManager.class);
         getManager(LanManager.class);
         getManager(WifiManager.class);
@@ -93,9 +99,13 @@ public class FreeboxOsSession {
 
     public void openSession(String appToken) throws FreeboxException {
         Session newSession = getManager(LoginManager.class).openSession(appToken);
-        getManager(WebSocketManager.class).openSession(newSession.sessionToken());
         session = newSession;
         this.appToken = appToken;
+        if (vmSupported == null) {
+            vmSupported = getManager(SystemManager.class).getConfig().modelInfo().hasVm();
+        }
+        getManager(WebSocketManager.class).openSession(newSession.sessionToken(), wsReconnectInterval,
+                Boolean.TRUE.equals(vmSupported));
     }
 
     public String grant() throws FreeboxException {
@@ -106,7 +116,7 @@ public class FreeboxOsSession {
         Session currentSession = session;
         if (currentSession != null) {
             try {
-                getManager(WebSocketManager.class).closeSession();
+                getManager(WebSocketManager.class).dispose();
                 getManager(LoginManager.class).closeSession();
                 session = null;
             } catch (FreeboxException e) {
@@ -156,8 +166,8 @@ public class FreeboxOsSession {
                 manager = addManager(clazz, managerConstructor.newInstance(this));
             } catch (InvocationTargetException e) {
                 Throwable cause = e.getCause();
-                if (cause instanceof PermissionException) {
-                    throw (PermissionException) cause;
+                if (cause instanceof PermissionException exception) {
+                    throw exception;
                 }
                 throw new FreeboxException(e, "Unable to call RestManager constructor for %s", clazz.getName());
             } catch (ReflectiveOperationException e) {

@@ -55,7 +55,7 @@ Note. The Xiaomi devices change the token when inclusion is done. Hence if you g
 ## Binding Configuration
 
 No binding configuration is required. However to enable cloud functionality enter your Xiaomi username, password and server(s).
-The list of the known countries and related severs is [here](#country-servers).
+The list of the known countries and related servers is available [in the country servers](#country-servers) section.
 
 After successful Xiaomi cloud login, the binding will use the connection to retrieve the required device tokens from the cloud.
 For Xiaomi vacuums the map can be visualized in openHAB using the cloud connection.
@@ -248,10 +248,18 @@ Additionally depending on the capabilities of your robot vacuum other channels m
 | Switch  | status#water_box_status           | Water Box Status           |
 | Switch  | status#lock_status                | Lock Status                |
 | Number  | status#water_box_mode             | Water Box Mode             |
+| Number  | status#mop_mode                   | Mop Mode                   |
 | Switch  | status#water_box_carriage_status  | Water Box Carriage Status  |
 | Switch  | status#mop_forbidden_enable       | Mop Forbidden              |
 | Switch  | status#is_locating                | Robot is locating          |
 | Number  | actions#segment                   | Room Clean  (enter room #) |
+| Switch  | actions#collect_dust              | Start collecting dust      |
+| Switch  | actions#clean_mop_start           | Start mop wash             |
+| Switch  | actions#clean_mop_stop            | Stop mop wash              |
+| Number  | status#mop_drying_time            | Mop drying Time            |
+| Switch  | status#is_mop_drying              | Mop cleaning active        |
+| Number  | status#dock_state_id              | Dock status id             |
+| String  | status#dock_state                 | Dock status message        |
 
 Note: cleaning map is only available with cloud access.
 
@@ -268,6 +276,8 @@ This allows you to control the colors, if logo is displayed, if and what text is
 To (re-)read the file either restart openHAB, restart the binding or alternatively edit the thing and make (any) minor change.
 Note, cropping is disabled (hence showing like the maps in OH3.1 and earlier) for any `cropBorder` value < 0.
 Note, not all the values need to be in the json file, e.g. a subset of the parameters also works, the parameters not in the `mapConfig.json` will take the default values.
+
+### Basic, gateway and lumi Things channels
 
 !!!channelList
 
@@ -288,10 +298,10 @@ Number statusBat    "Battery Level [%1.0f%%]" <battery>   (gVac,gVacStat) {chann
 Number statusArea    "Cleaned Area [%1.0fm²]" <zoom>   (gVac,gVacStat) {channel="miio:vacuum:034F0E45:status#clean_area" }
 Number statusTime    "Cleaning Time [%1.0f']" <clock>   (gVac,gVacStat) {channel="miio:vacuum:034F0E45:status#clean_time" }
 String  statusError    "Error [%s]"  <error>  (gVac,gVacStat) {channel="miio:vacuum:034F0E45:status#error_code" }
-Number statusFanPow    "Fan Power [%1.0f%%]"  <signal>   (gVacStat) {channel="miio:vacuum:034F0E45:status#fan_power" } 
+Number statusFanPow    "Fan Power [%1.0f%%]"  <signal>   (gVacStat) {channel="miio:vacuum:034F0E45:status#fan_power" }
 Number statusClean    "In Cleaning Status [%1.0f]"   <switch>  (gVacStat) {channel="miio:vacuum:034F0E45:status#in_cleaning" }
 Switch statusDND    "DND Activated"    (gVacStat) {channel="miio:vacuum:034F0E45:status#dnd_enabled" }
-Number statusStatus    "Status [%1.0f]"  <status>  (gVacStat) {channel="miio:vacuum:034F0E45:status#state"} 
+Number statusStatus    "Status [%1.0f]"  <status>  (gVacStat) {channel="miio:vacuum:034F0E45:status#state"}
 Switch isLocating    "Locating"    (gVacStat) {channel="miio:vacuum:034F0E45:status#is_locating" }
 
 Number consumableMain    "Main Brush [%1.0f]"    (gVacCons) {channel="miio:vacuum:034F0E45:consumables#main_brush_time"}
@@ -316,6 +326,8 @@ Switch lastCompleted  "Last Cleaning Completed"    (gVacLast) {channel="miio:vac
 
 Image map "Cleaning Map" (gVacLast) {channel="miio:vacuum:034F0E45:cleaning#map"}
 ```
+
+### Basic, gateway and lumi Things item files examples
 
 !!!itemFileExamples
 

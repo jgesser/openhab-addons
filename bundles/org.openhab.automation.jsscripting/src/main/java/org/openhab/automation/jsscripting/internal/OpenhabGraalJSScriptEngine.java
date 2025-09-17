@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,6 +13,7 @@
 package org.openhab.automation.jsscripting.internal;
 
 import static org.openhab.core.automation.module.script.ScriptEngineFactory.*;
+import static org.openhab.core.automation.module.script.ScriptTransformationService.OPENHAB_TRANSFORMATION_SCRIPT;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,14 +26,14 @@ import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileAttribute;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -47,11 +48,13 @@ import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.HostAccess;
 import org.graalvm.polyglot.Source;
 import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.io.IOAccess;
 import org.openhab.automation.jsscripting.internal.fs.DelegatingFileSystem;
 import org.openhab.automation.jsscripting.internal.fs.PrefixedSeekableByteChannel;
 import org.openhab.automation.jsscripting.internal.fs.ReadOnlySeekableByteArrayChannel;
 import org.openhab.automation.jsscripting.internal.fs.watch.JSDependencyTracker;
-import org.openhab.automation.jsscripting.internal.scriptengine.InvocationInterceptingScriptEngineWithInvocableAndAutoCloseable;
+import org.openhab.automation.jsscripting.internal.scriptengine.InvocationInterceptingScriptEngineWithInvocableAndCompilableAndAutoCloseable;
+import org.openhab.automation.jsscripting.internal.scriptengine.helper.LifecycleTracker;
 import org.openhab.core.automation.module.script.ScriptExtensionAccessor;
 import org.openhab.core.items.Item;
 import org.openhab.core.library.types.QuantityType;
@@ -67,37 +70,39 @@ import com.oracle.truffle.js.scriptengine.GraalJSScriptEngine;
  * @author Dan Cunningham - Script injections
  * @author Florian Hotze - Create lock object for multi-thread synchronization; Inject the {@link JSRuntimeFeatures}
  *         into the JS context; Fix memory leak caused by HostObject by making HostAccess reference static; Switch to
- *         {@link Lock} for multi-thread synchronization; globals & openhab-js injection code caching
+ *         {@link Lock} for multi-thread synchronization; globals and openhab-js injection code caching
  */
 public class OpenhabGraalJSScriptEngine
-        extends InvocationInterceptingScriptEngineWithInvocableAndAutoCloseable<GraalJSScriptEngine> {
+        extends InvocationInterceptingScriptEngineWithInvocableAndCompilableAndAutoCloseable<GraalJSScriptEngine>
+        implements Lock {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(OpenhabGraalJSScriptEngine.class);
-    private static Source GLOBAL_SOURCE;
+    private static final Source GLOBAL_SOURCE;
     static {
         try {
-            GLOBAL_SOURCE = Source.newBuilder("js", getFileAsReader("node_modules/@jsscripting-globals.js"),
-                    "@jsscripting-globals.js").cached(true).build();
+            GLOBAL_SOURCE = Source
+                    .newBuilder("js", getFileAsReader(GraalJSScriptEngineFactory.NODE_DIR + "/@jsscripting-globals.js"),
+                            "@jsscripting-globals.js")
+                    .cached(true).build();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load @jsscripting-globals.js", e);
+            throw new IllegalStateException("Failed to load @jsscripting-globals.js", e);
         }
     }
 
-    private static Source OPENHAB_JS_SOURCE;
+    private static final Source OPENHAB_JS_SOURCE;
     static {
         try {
             OPENHAB_JS_SOURCE = Source
-                    .newBuilder("js", getFileAsReader("node_modules/@openhab-globals.js"), "@openhab-globals.js")
+                    .newBuilder("js", getFileAsReader(GraalJSScriptEngineFactory.NODE_DIR + "/@openhab-globals.js"),
+                            "@openhab-globals.js")
                     .cached(true).build();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to load @openhab-globals.js", e);
+            throw new IllegalStateException("Failed to load @openhab-globals.js", e);
         }
     }
     private static final String OPENHAB_JS_INJECTION_CODE = "Object.assign(this, require('openhab'));";
+    private static final String EVENT_CONVERSION_CODE = "const event = (typeof this.rules?._getTriggeredData === 'function') ? rules._getTriggeredData(ctx, true) : this.event";
 
     private static final String REQUIRE_WRAPPER_NAME = "__wraprequire__";
-    /** Final CommonJS search path for our library */
-    private static final Path NODE_DIR = Paths.get("node_modules");
     /** Shared Polyglot {@link Engine} across all instances of {@link OpenhabGraalJSScriptEngine} */
     private static final Engine ENGINE = Engine.newBuilder().allowExperimentalOptions(true)
             .option("engine.WarnInterpreterOnly", "false").build();
@@ -126,53 +131,47 @@ public class OpenhabGraalJSScriptEngine
                     v -> v.getMember("rawItem").as(Item.class), HostAccess.TargetMappingPrecedence.LOW)
 
             // Translate openhab-js Quantity to org.openhab.core.library.types.QuantityType
-            .targetTypeMapping(Value.class, QuantityType.class, v -> v.hasMember("raw") && v.hasMember("toUnit"),
-                    v -> v.getMember("raw").as(QuantityType.class), HostAccess.TargetMappingPrecedence.LOW)
+            .targetTypeMapping(Value.class, QuantityType.class, v -> v.hasMember("rawQtyType"),
+                    v -> v.getMember("rawQtyType").as(QuantityType.class), HostAccess.TargetMappingPrecedence.LOW)
             .build();
+
+    private final Logger logger = LoggerFactory.getLogger(OpenhabGraalJSScriptEngine.class);
 
     /** {@link Lock} synchronization of multi-thread access */
     private final Lock lock = new ReentrantLock();
     private final JSRuntimeFeatures jsRuntimeFeatures;
+    private final LifecycleTracker lifecycleTracker = new LifecycleTracker();
+    private final GraalJSScriptEngineConfiguration configuration;
 
     // these fields start as null because they are populated on first use
-    private String engineIdentifier;
     private @Nullable Consumer<String> scriptDependencyListener;
+    private String engineIdentifier = "<uninitialized>";
 
     private boolean initialized = false;
-    private final boolean injectionEnabled;
-    private final boolean useIncludedLibrary;
+    private boolean closed = false;
 
     /**
-     * Creates an implementation of ScriptEngine (& Invocable), wrapping the contained engine, that tracks the script
-     * lifecycle and provides hooks for scripts to do so too.
+     * Creates an implementation of ScriptEngine {@code (& Invocable)}, wrapping the contained engine,
+     * that tracks the script lifecycle and provides hooks for scripts to do so too.
      */
-    public OpenhabGraalJSScriptEngine(boolean injectionEnabled, boolean useIncludedLibrary,
+    public OpenhabGraalJSScriptEngine(GraalJSScriptEngineConfiguration configuration,
             JSScriptServiceUtil jsScriptServiceUtil, JSDependencyTracker jsDependencyTracker) {
         super(null); // delegate depends on fields not yet initialised, so we cannot set it immediately
-        this.injectionEnabled = injectionEnabled;
-        this.useIncludedLibrary = useIncludedLibrary;
+        this.configuration = configuration;
         this.jsRuntimeFeatures = jsScriptServiceUtil.getJSRuntimeFeatures(lock);
 
-        LOGGER.debug("Initializing GraalJS script engine...");
-
-        delegate = GraalJSScriptEngine.create(ENGINE,
-                Context.newBuilder("js").allowExperimentalOptions(true).allowAllAccess(true)
-                        .allowHostAccess(HOST_ACCESS)
-                        .option("js.commonjs-require-cwd", jsDependencyTracker.getLibraryPath().toString())
-                        .option("js.nashorn-compat", "true") // Enable Nashorn compat mode as openhab-js relies on
-                                                             // accessors, see
-                                                             // https://github.com/oracle/graaljs/blob/master/docs/user/NashornMigrationGuide.md#accessors
-                        .option("js.ecmascript-version", "2022") // If Nashorn compat is enabled, it will enforce ES5
-                                                                 // compatibility, we want ECMA2022
-                        .option("js.commonjs-require", "true") // Enable CommonJS module support
-                        .hostClassLoader(getClass().getClassLoader())
+        delegate = GraalJSScriptEngine.create(ENGINE, Context.newBuilder("js") //
+                .allowIO(IOAccess.newBuilder() //
                         .fileSystem(new DelegatingFileSystem(FileSystems.getDefault().provider()) {
                             @Override
                             public SeekableByteChannel newByteChannel(Path path, Set<? extends OpenOption> options,
                                     FileAttribute<?>... attrs) throws IOException {
-                                Consumer<String> localScriptDependencyListener = scriptDependencyListener;
-                                if (localScriptDependencyListener != null) {
-                                    localScriptDependencyListener.accept(path.toString());
+                                if (configuration.isDependencyTrackingEnabled()
+                                        && path.startsWith(GraalJSScriptEngineFactory.JS_LIB_PATH)) {
+                                    Consumer<String> localScriptDependencyListener = scriptDependencyListener;
+                                    if (localScriptDependencyListener != null) {
+                                        localScriptDependencyListener.accept(path.toString());
+                                    }
                                 }
 
                                 if (path.toString().endsWith(".js")) {
@@ -180,7 +179,7 @@ public class OpenhabGraalJSScriptEngine
                                     if (isRootNodePath(path)) {
                                         InputStream is = getClass().getResourceAsStream(nodeFileToResource(path));
                                         if (is == null) {
-                                            throw new IOException("Could not read " + path.toString());
+                                            throw new IOException("Could not read " + path);
                                         }
                                         sbc = new ReadOnlySeekableByteArrayChannel(is.readAllBytes());
                                     } else {
@@ -209,7 +208,7 @@ public class OpenhabGraalJSScriptEngine
                             public Map<String, Object> readAttributes(Path path, String attributes,
                                     LinkOption... options) throws IOException {
                                 if (isRootNodePath(path)) {
-                                    return Collections.singletonMap("isRegularFile", true);
+                                    return Map.of("isRegularFile", true);
                                 }
                                 return super.readAttributes(path, attributes, options);
                             }
@@ -221,14 +220,40 @@ public class OpenhabGraalJSScriptEngine
                                 }
                                 return super.toRealPath(path, linkOptions);
                             }
-                        }));
+                        }).build())
+                .allowHostAccess(HOST_ACCESS) //
+                // usage of .allowAllAccess(true) includes
+                // - allowCreateThread(true)
+                // - allowCreateProcess(true)
+                // - allowHostClassLoading(true)
+                // - allowHostClassLookup(true)
+                // - allowPolyglotAccess(PolyglotAccess.ALL)
+                // - allowIO(true)
+                // - allowEnvironmentAccess(EnvironmentAccess.INHERIT)
+                .allowAllAccess(true) //
+                // allow class lookup from scripts
+                .hostClassLoader(getClass().getClassLoader()) //
+                // allow experimental options
+                .allowExperimentalOptions(true) //
+                // choose the path to look for CommonJS module (i.e. node_modules)
+                .option("js.commonjs-require-cwd", jsDependencyTracker.getLibraryPath().toString()) //
+                // enable Nashorn compat mode as openhab-js relies on accessors, see
+                // https://github.com/oracle/graaljs/blob/master/docs/user/NashornMigrationGuide.md#accessors
+                .option("js.nashorn-compat", "true") //
+                // if Nashorn compat mode is enabled, it will enforce ES5 compatibility, we want ECMA2024
+                .option("js.ecmascript-version", "2024") //
+                // enable CommonJS module support
+                .option("js.commonjs-require", "true"));
     }
 
     @Override
     protected void beforeInvocation() {
         super.beforeInvocation();
 
+        logger.debug("Initializing GraalJS script engine '{}' ...", engineIdentifier);
+
         lock.lock();
+        logger.debug("Lock acquired before invocation for engine '{}'.", engineIdentifier);
 
         if (initialized) {
             return;
@@ -240,10 +265,11 @@ public class OpenhabGraalJSScriptEngine
         }
 
         // these are added post-construction, so we need to fetch them late
-        this.engineIdentifier = (String) ctx.getAttribute(CONTEXT_KEY_ENGINE_IDENTIFIER);
-        if (this.engineIdentifier == null) {
+        String localEngineIdentifier = (String) ctx.getAttribute(CONTEXT_KEY_ENGINE_IDENTIFIER);
+        if (localEngineIdentifier == null) {
             throw new IllegalStateException("Failed to retrieve engine identifier from engine bindings");
         }
+        this.engineIdentifier = localEngineIdentifier;
 
         ScriptExtensionAccessor scriptExtensionAccessor = (ScriptExtensionAccessor) ctx
                 .getAttribute(CONTEXT_KEY_EXTENSION_ACCESSOR);
@@ -251,52 +277,75 @@ public class OpenhabGraalJSScriptEngine
             throw new IllegalStateException("Failed to retrieve script extension accessor from engine bindings");
         }
 
-        scriptDependencyListener = (Consumer<String>) ctx
-                .getAttribute("oh.dependency-listener"/* CONTEXT_KEY_DEPENDENCY_LISTENER */);
-        if (scriptDependencyListener == null) {
-            LOGGER.warn(
-                    "Failed to retrieve script script dependency listener from engine bindings. Script dependency tracking will be disabled.");
+        Consumer<String> localScriptDependencyListener = (Consumer<String>) ctx
+                .getAttribute(CONTEXT_KEY_DEPENDENCY_LISTENER);
+        if (localScriptDependencyListener == null) {
+            logger.warn(
+                    "Failed to retrieve script dependency listener from engine bindings. Script dependency tracking will be disabled for engine '{}'.",
+                    engineIdentifier);
         }
+        scriptDependencyListener = localScriptDependencyListener;
 
         ScriptExtensionModuleProvider scriptExtensionModuleProvider = new ScriptExtensionModuleProvider(
-                scriptExtensionAccessor, lock);
+                scriptExtensionAccessor, lock, lifecycleTracker);
 
         // Wrap the "require" function to also allow loading modules from the ScriptExtensionModuleProvider
         Function<Function<Object[], Object>, Function<String, Object>> wrapRequireFn = originalRequireFn -> moduleName -> scriptExtensionModuleProvider
-                .locatorFor(delegate.getPolyglotContext(), engineIdentifier).locateModule(moduleName)
+                .locatorFor(delegate.getPolyglotContext(), localEngineIdentifier).locateModule(moduleName)
                 .map(m -> (Object) m).orElseGet(() -> originalRequireFn.apply(new Object[] { moduleName }));
         delegate.getBindings(ScriptContext.ENGINE_SCOPE).put(REQUIRE_WRAPPER_NAME, wrapRequireFn);
         delegate.put("require", wrapRequireFn.apply((Function<Object[], Object>) delegate.get("require")));
 
         // Injections into the JS runtime
         jsRuntimeFeatures.getFeatures().forEach((key, obj) -> {
-            LOGGER.debug("Injecting {} into the JS runtime...", key);
+            logger.debug("Injecting {} into the context of engine '{}' ...", key, engineIdentifier);
             delegate.put(key, obj);
         });
 
         initialized = true;
 
         try {
-            LOGGER.debug("Evaluating cached global script...");
+            logger.debug("Evaluating cached global script for engine '{}' ...", engineIdentifier);
             delegate.getPolyglotContext().eval(GLOBAL_SOURCE);
-            if (this.injectionEnabled) {
-                if (this.useIncludedLibrary) {
-                    LOGGER.debug("Evaluating cached openhab-js injection...");
+
+            if (configuration.isInjectionEnabledForAllScripts()
+                    || (isUiBasedScript() && configuration.isInjectionEnabledForUiBasedScript())
+                    || (isTransformationScript() && configuration.isInjectionEnabledForTransformations())) {
+                if (configuration.isInjectionCachingEnabled()) {
+                    logger.debug("Evaluating cached openhab-js injection for engine '{}' ...", engineIdentifier);
                     delegate.getPolyglotContext().eval(OPENHAB_JS_SOURCE);
                 } else {
-                    LOGGER.debug("Evaluating openhab-js injection from the file system...");
+                    logger.debug("Evaluating openhab-js injection from the file system for engine '{}' ...",
+                            engineIdentifier);
                     eval(OPENHAB_JS_INJECTION_CODE);
                 }
             }
-            LOGGER.debug("Successfully initialized GraalJS script engine.");
+            logger.debug("Successfully initialized GraalJS script engine '{}'.", engineIdentifier);
         } catch (ScriptException e) {
-            LOGGER.error("Could not inject global script", e);
+            logger.error("Could not inject global script", e);
         }
+    }
+
+    @Override
+    protected String onScript(String script) {
+        if (isUiBasedScript() && configuration.isWrapperEnabled()) {
+            logger.debug("Wrapping script for engine '{}' ...", engineIdentifier);
+
+            String eventConversionScript = "";
+            if (configuration.isEventConversionEnabled()) {
+                eventConversionScript = EVENT_CONVERSION_CODE + System.lineSeparator();
+            }
+
+            return "(function() {" + System.lineSeparator() + eventConversionScript + script + System.lineSeparator()
+                    + "})()";
+        }
+        return super.onScript(script);
     }
 
     @Override
     protected Object afterInvocation(Object obj) {
         lock.unlock();
+        logger.debug("Lock released after invocation for engine '{}'.", engineIdentifier);
         return super.afterInvocation(obj);
     }
 
@@ -307,8 +356,56 @@ public class OpenhabGraalJSScriptEngine
     }
 
     @Override
-    public void close() {
-        jsRuntimeFeatures.close();
+    public void close() throws Exception {
+        if (closed) {
+            logger.debug("Engine '{}' is already disposed and closed.", engineIdentifier);
+            return;
+        }
+
+        lock.lock();
+        try {
+            try {
+                jsRuntimeFeatures.close();
+                this.lifecycleTracker.dispose();
+            } finally {
+                logger.debug("Engine '{}' disposed.", engineIdentifier);
+                super.close();
+                logger.debug("Engine '{}' closed.", engineIdentifier);
+            }
+        } finally {
+            closed = true;
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Tests if the current script is a UI-based script, i.e. it is neither loaded from a file nor a transformation.
+     * 
+     * @return true if the script is UI-based, false otherwise
+     */
+    private boolean isUiBasedScript() {
+        ScriptContext ctx = delegate.getContext();
+        if (ctx == null) {
+            logger.warn("Failed to retrieve script context from engine '{}'.", engineIdentifier);
+            return false;
+        }
+        return ctx.getAttribute("javax.script.filename") == null
+                && !engineIdentifier.startsWith(OPENHAB_TRANSFORMATION_SCRIPT);
+    }
+
+    /**
+     * Tests if the current script is a transformation script, i.e. it is created from the script transformation
+     * service.
+     * 
+     * @return true if the script is a transformation script, false otherwise
+     */
+    private boolean isTransformationScript() {
+        ScriptContext ctx = delegate.getContext();
+        if (ctx == null) {
+            logger.warn("Failed to retrieve script context from engine '{}'.", engineIdentifier);
+            return false;
+        }
+        return engineIdentifier.startsWith(OPENHAB_TRANSFORMATION_SCRIPT);
     }
 
     /**
@@ -317,8 +414,8 @@ public class OpenhabGraalJSScriptEngine
      * @param path a root path
      * @return whether the given path is a node root directory
      */
-    private boolean isRootNodePath(Path path) {
-        return path.startsWith(path.getRoot().resolve(NODE_DIR));
+    private static boolean isRootNodePath(Path path) {
+        return path.startsWith(path.getRoot().resolve(GraalJSScriptEngineFactory.NODE_DIR));
     }
 
     /**
@@ -328,7 +425,7 @@ public class OpenhabGraalJSScriptEngine
      * @param path a root path, e.g. C:\node_modules\foo.js
      * @return the class resource path for loading local modules
      */
-    private String nodeFileToResource(Path path) {
+    private static String nodeFileToResource(Path path) {
         return "/" + path.subpath(0, path.getNameCount()).toString().replace('\\', '/');
     }
 
@@ -344,5 +441,37 @@ public class OpenhabGraalJSScriptEngine
         }
 
         return new InputStreamReader(ioStream);
+    }
+
+    @Override
+    public void lock() {
+        lock.lock();
+        logger.debug("Lock acquired for engine '{}'.", engineIdentifier);
+    }
+
+    @Override
+    public void lockInterruptibly() throws InterruptedException {
+        lock.lockInterruptibly();
+    }
+
+    @Override
+    public boolean tryLock() {
+        return lock.tryLock();
+    }
+
+    @Override
+    public boolean tryLock(long l, TimeUnit timeUnit) throws InterruptedException {
+        return lock.tryLock(l, timeUnit);
+    }
+
+    @Override
+    public void unlock() {
+        lock.unlock();
+        logger.debug("Lock released for engine '{}'.", engineIdentifier);
+    }
+
+    @Override
+    public Condition newCondition() {
+        return lock.newCondition();
     }
 }

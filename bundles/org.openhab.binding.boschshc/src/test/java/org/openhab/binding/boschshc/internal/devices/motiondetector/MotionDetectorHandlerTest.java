@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,9 +16,12 @@ import static org.mockito.Mockito.verify;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.openhab.binding.boschshc.internal.devices.AbstractBatteryPoweredDeviceHandlerTest;
 import org.openhab.binding.boschshc.internal.devices.BoschSHCBindingConstants;
 import org.openhab.core.library.types.DateTimeType;
+import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ThingTypeUID;
 
@@ -32,6 +35,7 @@ import com.google.gson.JsonParser;
  *
  */
 @NonNullByDefault
+@ExtendWith(MockitoExtension.class)
 class MotionDetectorHandlerTest extends AbstractBatteryPoweredDeviceHandlerTest<MotionDetectorHandler> {
 
     @Override
@@ -51,11 +55,28 @@ class MotionDetectorHandlerTest extends AbstractBatteryPoweredDeviceHandlerTest<
 
     @Test
     void testUpdateChannelsLatestMotionService() {
-        JsonElement jsonObject = JsonParser.parseString("{\n" + "   \"@type\": \"latestMotionState\",\n"
-                + "   \"latestMotionDetected\": \"2020-04-03T19:02:19.054Z\"\n" + " }");
+        JsonElement jsonObject = JsonParser.parseString("""
+                {
+                   "@type": "latestMotionState",
+                   "latestMotionDetected": "2020-04-03T19:02:19.054Z"
+                 }\
+                """);
         getFixture().processUpdate("LatestMotion", jsonObject);
         verify(getCallback()).stateUpdated(
                 new ChannelUID(getThing().getUID(), BoschSHCBindingConstants.CHANNEL_LATEST_MOTION),
                 new DateTimeType("2020-04-03T19:02:19.054Z"));
+    }
+
+    @Test
+    void testUpdateChannelsIlluminanceService() {
+        JsonElement jsonObject = JsonParser.parseString("""
+                {
+                    "@type": "illuminanceLevelState",
+                    "illuminance": 42
+                }\
+                """);
+        getFixture().processUpdate("MultiLevelSensor", jsonObject);
+        verify(getCallback()).stateUpdated(
+                new ChannelUID(getThing().getUID(), BoschSHCBindingConstants.CHANNEL_ILLUMINANCE), new DecimalType(42));
     }
 }

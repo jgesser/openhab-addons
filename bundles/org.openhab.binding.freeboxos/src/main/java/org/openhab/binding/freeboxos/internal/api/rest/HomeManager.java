@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,9 +14,12 @@ package org.openhab.binding.freeboxos.internal.api.rest;
 
 import static org.openhab.binding.freeboxos.internal.FreeboxOsBindingConstants.BINDING_ID;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.freeboxos.internal.api.FreeboxException;
@@ -42,14 +45,14 @@ public class HomeManager extends RestManager {
     private static class HomeNodesResponse extends Response<HomeNode> {
     }
 
-    private static enum AccessType {
+    private enum AccessType {
         R,
         W,
         RW,
-        UNKNOWN;
+        UNKNOWN
     }
 
-    private static enum DisplayType {
+    private enum DisplayType {
         TEXT,
         ICON,
         BUTTON,
@@ -57,7 +60,7 @@ public class HomeManager extends RestManager {
         TOGGLE,
         COLOR,
         WARNING,
-        UNKNOWN;
+        UNKNOWN
     }
 
     private static record EndpointValue<T> (T value) {
@@ -66,13 +69,13 @@ public class HomeManager extends RestManager {
     private static record EndpointUi(AccessType access, DisplayType display, String iconUrl, @Nullable String unit) {
     }
 
-    private static enum ValueType {
+    private enum ValueType {
         BOOL,
         INT,
         FLOAT,
         VOID,
         STRING,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public static record EndpointState(@Nullable String value, ValueType valueType, long refresh) {
@@ -91,7 +94,7 @@ public class HomeManager extends RestManager {
         }
     }
 
-    public static enum EpType {
+    public enum EpType {
         SIGNAL,
         SLOT,
         UNKNOWN;
@@ -101,43 +104,48 @@ public class HomeManager extends RestManager {
         }
     }
 
-    private static record LogEntry(long timestamp, int value) {
+    public static record LogEntry(Long timestamp, int value) {
     }
 
     public static record Endpoint(int id, String name, String label, EpType epType, Visibility visibility, int refresh,
-            ValueType valueType, EndpointUi ui, @Nullable String category, Object value, List<LogEntry> history) {
-        private static enum Visibility {
+            ValueType valueType, EndpointUi ui, @Nullable String category, Object value,
+            @Nullable List<LogEntry> history) {
+
+        private static final Comparator<LogEntry> HISTORY_COMPARATOR = Comparator.comparing(LogEntry::timestamp);
+
+        private enum Visibility {
             INTERNAL,
             NORMAL,
             DASHBOARD,
-            UNKNOWN;
+            UNKNOWN
+        }
+
+        public Optional<LogEntry> getLastChange() {
+            return history != null ? history.stream().max(HISTORY_COMPARATOR) : Optional.empty();
         }
     }
 
-    private static enum Status {
+    private enum Status {
         UNREACHABLE,
         DISABLED,
         ACTIVE,
         UNPAIRED,
-        UNKNOWN;
+        UNKNOWN
     }
 
-    public static enum Category {
+    public enum Category {
         BASIC_SHUTTER,
         SHUTTER,
         ALARM,
         KFB,
         CAMERA,
+        PIR,
         UNKNOWN;
 
-        private final ThingTypeUID thingTypeUID;
+        public final ThingTypeUID thingTypeUID;
 
         Category() {
-            thingTypeUID = new ThingTypeUID(BINDING_ID, name().toLowerCase());
-        }
-
-        public ThingTypeUID getThingTypeUID() {
-            return thingTypeUID;
+            thingTypeUID = new ThingTypeUID(BINDING_ID, name().toLowerCase().replace('_', '-'));
         }
     }
 
@@ -147,6 +155,17 @@ public class HomeManager extends RestManager {
 
     public static record HomeNode(int id, @Nullable String name, @Nullable String label, Category category,
             Status status, List<Endpoint> showEndpoints, Map<String, String> props, NodeType type) {
+
+        private static final Comparator<Endpoint> ENPOINT_COMPARATOR = Comparator.comparing(Endpoint::refresh);
+
+        public Optional<Endpoint> getMinRefresh() {
+            return showEndpoints.stream().filter(ep -> EpType.SIGNAL.equals(ep.epType) && ep.refresh() != 0)
+                    .min(ENPOINT_COMPARATOR);
+        }
+
+        public Optional<Endpoint> getEndpoint(int slotId) {
+            return showEndpoints.stream().filter(ep -> ep.id == slotId).findAny();
+        }
     }
 
     public HomeManager(FreeboxOsSession session) throws FreeboxException {
@@ -167,7 +186,8 @@ public class HomeManager extends RestManager {
     }
 
     public <T> boolean putCommand(int nodeId, int stateSignalId, T value) throws FreeboxException {
-        put(new EndpointValue<T>(value), ENDPOINTS_PATH, String.valueOf(nodeId), String.valueOf(stateSignalId));
+        put(new EndpointValue<@NonNull T>(value), ENDPOINTS_PATH, String.valueOf(nodeId),
+                String.valueOf(stateSignalId));
         return true;
     }
 }

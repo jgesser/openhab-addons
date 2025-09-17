@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -21,7 +21,6 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +64,8 @@ public class GreeAirDevice {
     private final InetAddress ipAddress;
     private int port = 0;
     private String encKey = "";
+    private EncryptionTypes encType = EncryptionTypes.UNKNOWN;
+    private int refreshInterval = 5;
     private Optional<GreeScanResponseDTO> scanResponseGson = Optional.empty();
     private Optional<GreeStatusResponseDTO> statusResponseGson = Optional.empty();
     private Optional<GreeStatusResponsePackDTO> prevStatusResponsePackGson = Optional.empty();
@@ -74,9 +75,19 @@ public class GreeAirDevice {
     }
 
     public GreeAirDevice(InetAddress ipAddress, int port, GreeScanResponseDTO scanResponse) {
+        this(ipAddress, port, scanResponse, GreeCryptoUtil.getEncryptionType(scanResponse));
+    }
+
+    public GreeAirDevice(InetAddress ipAddress, int port, GreeScanResponseDTO scanResponse,
+            EncryptionTypes encryptionType) {
         this.ipAddress = ipAddress;
         this.port = port;
         this.scanResponseGson = Optional.of(scanResponse);
+        if (encryptionType == EncryptionTypes.UNKNOWN) {
+            this.encType = GreeCryptoUtil.getEncryptionType(scanResponse);
+        } else {
+            this.encType = encryptionType;
+        }
     }
 
     public void getDeviceStatus(DatagramSocket clientSocket) throws GreeException {
@@ -118,9 +129,8 @@ public class GreeAirDevice {
             String reqStatusPackStr = GSON.toJson(reqStatusPackGson);
 
             // Encrypt and send the Status Request pack
-            String encryptedStatusReqPacket = GreeCryptoUtil.encryptPack(getKey(), reqStatusPackStr);
-            DatagramPacket sendPacket = createPackRequest(0,
-                    new String(encryptedStatusReqPacket.getBytes(), StandardCharsets.UTF_8));
+            String[] encryptedStatusReqData = GreeCryptoUtil.encrypt(getKey(), reqStatusPackStr, encType);
+            DatagramPacket sendPacket = createPackRequest(0, encryptedStatusReqData);
             clientSocket.send(sendPacket);
 
             // Keep a copy of the old response to be used to check if values have changed
@@ -132,7 +142,7 @@ public class GreeAirDevice {
 
             // Read the response, create the JSON to hold the response values
             GreeStatusResponseDTO resp = receiveResponse(clientSocket, GreeStatusResponseDTO.class);
-            resp.decryptedPack = GreeCryptoUtil.decryptPack(getKey(), resp.pack);
+            resp.decryptedPack = GreeCryptoUtil.decrypt(getKey(), resp, encType);
             logger.debug("Response from device: {}", resp.decryptedPack);
             resp.packJson = GSON.fromJson(resp.decryptedPack, GreeStatusResponsePackDTO.class);
 
@@ -148,7 +158,7 @@ public class GreeAirDevice {
         }
     }
 
-    public void bindWithDevice(DatagramSocket clientSocket) throws GreeException {
+    public void bindWithDevice(DatagramSocket clientSocket, EncryptionTypes encryptionTypeConfig) throws GreeException {
         try {
             // Prep the Binding Request pack
             GreeBindRequestPackDTO bindReqPackGson = new GreeBindRequestPackDTO();
@@ -158,14 +168,15 @@ public class GreeAirDevice {
             String bindReqPackStr = GSON.toJson(bindReqPackGson);
 
             // Encrypt and send the Binding Request pack
-            String encryptedBindReqPacket = GreeCryptoUtil.encryptPack(GreeCryptoUtil.getAESGeneralKeyByteArray(),
-                    bindReqPackStr);
-            DatagramPacket sendPacket = createPackRequest(1, encryptedBindReqPacket);
+            setEncryptionType(encryptionTypeConfig);
+            String[] encryptedBindReqData = GreeCryptoUtil.encrypt(GreeCryptoUtil.getGeneralKeyByteArray(encType),
+                    bindReqPackStr, encType);
+            DatagramPacket sendPacket = createPackRequest(1, encryptedBindReqData);
             clientSocket.send(sendPacket);
 
-            // Recieve a response, create the JSON to hold the response values
+            // Receive a response, create the JSON to hold the response values
             GreeBindResponseDTO resp = receiveResponse(clientSocket, GreeBindResponseDTO.class);
-            resp.decryptedPack = GreeCryptoUtil.decryptPack(GreeCryptoUtil.getAESGeneralKeyByteArray(), resp.pack);
+            resp.decryptedPack = GreeCryptoUtil.decrypt(resp, encType);
             resp.packJson = GSON.fromJson(resp.decryptedPack, GreeBindResponsePackDTO.class);
 
             // Now set the key and flag to indicate the bind was successful
@@ -174,7 +185,12 @@ public class GreeAirDevice {
             // save the outcome
             isBound = true;
         } catch (IOException | JsonSyntaxException e) {
-            throw new GreeException("Unable to bind to device", e);
+            if (encType == EncryptionTypes.ECB) {
+                logger.debug("Unable to bind to device - changing the encryption mode to COMBINED and trying again", e);
+                bindWithDevice(clientSocket, EncryptionTypes.COMBINED);
+            } else {
+                throw new GreeException("Unable to bind to device", e);
+            }
         }
     }
 
@@ -214,7 +230,7 @@ public class GreeAirDevice {
 
     /**
      * SwingLfRig: controls the swing mode of the horizontal air blades (available on limited number of devices, e.g.
-     * some Cooper & Hunter units - thanks to mvmn)
+     * some Cooper and Hunter units - thanks to mvmn)
      *
      * 0: default
      * 1: full swing
@@ -271,7 +287,7 @@ public class GreeAirDevice {
     }
 
     /**
-     * @param value set temperature in degrees Celsius or Fahrenheit
+     * @param temp set temperature in degrees Celsius or Fahrenheit
      */
     public void setDeviceTempSet(DatagramSocket clientSocket, QuantityType<?> temp) throws GreeException {
         // If commanding Fahrenheit set halfStep to 1 or 0 to tell the A/C which F integer
@@ -370,8 +386,7 @@ public class GreeAirDevice {
             int valueArrayposition = colList.indexOf(valueName);
             if (valueArrayposition != -1) {
                 // get the Corresponding value
-                Integer value = valList.get(valueArrayposition);
-                return value;
+                return valList.get(valueArrayposition);
             }
         }
 
@@ -384,7 +399,7 @@ public class GreeAirDevice {
     }
 
     public boolean hasStatusValChanged(String valueName) throws GreeException {
-        if (!prevStatusResponsePackGson.isPresent()) {
+        if (prevStatusResponsePackGson.isEmpty()) {
             return true; // update value if there is no previous one
         }
         // Find the valueName in the Current Status object
@@ -426,13 +441,13 @@ public class GreeAirDevice {
             String execCmdPackStr = GSON.toJson(execCmdPackGson);
 
             // Now encrypt and send the Command Request pack
-            String encryptedCommandReqPacket = GreeCryptoUtil.encryptPack(getKey(), execCmdPackStr);
-            DatagramPacket sendPacket = createPackRequest(0, encryptedCommandReqPacket);
+            String[] encryptedCommandReqData = GreeCryptoUtil.encrypt(getKey(), execCmdPackStr, encType);
+            DatagramPacket sendPacket = createPackRequest(0, encryptedCommandReqData);
             clientSocket.send(sendPacket);
 
             // Receive and decode result
             GreeExecResponseDTO execResponseGson = receiveResponse(clientSocket, GreeExecResponseDTO.class);
-            execResponseGson.decryptedPack = GreeCryptoUtil.decryptPack(getKey(), execResponseGson.pack);
+            execResponseGson.decryptedPack = GreeCryptoUtil.decrypt(getKey(), execResponseGson, encType);
 
             // Create the JSON to hold the response values
             execResponseGson.packJson = GSON.fromJson(execResponseGson.decryptedPack, GreeExecResponsePackDTO.class);
@@ -442,7 +457,7 @@ public class GreeAirDevice {
     }
 
     private void setCommandValue(DatagramSocket clientSocket, String command, int value) throws GreeException {
-        executeCommand(clientSocket, Collections.singletonMap(command, value));
+        executeCommand(clientSocket, Map.of(command, value));
     }
 
     private void setCommandValue(DatagramSocket clientSocket, String command, int value, int min, int max)
@@ -450,20 +465,26 @@ public class GreeAirDevice {
         if ((value < min) || (value > max)) {
             throw new GreeException("Command value out of range!");
         }
-        executeCommand(clientSocket, Collections.singletonMap(command, value));
+        executeCommand(clientSocket, Map.of(command, value));
     }
 
-    private DatagramPacket createPackRequest(int i, String pack) {
+    private DatagramPacket createPackRequest(int i, String[] data) {
         GreeRequestDTO request = new GreeRequestDTO();
         request.cid = GREE_CID;
         request.i = i;
         request.t = GREE_CMDT_PACK;
         request.uid = 0;
         request.tcid = getId();
-        request.pack = pack;
+        request.pack = data[0];
+        if (encType != EncryptionTypes.ECB) {
+            if (data.length > 1) {
+                request.tag = data[1];
+            } else {
+                logger.warn("Missing string for tag property for {} encryption data", encType);
+            }
+        }
         byte[] sendData = GSON.toJson(request).getBytes(StandardCharsets.UTF_8);
-        DatagramPacket sendPacket = new DatagramPacket(sendData, sendData.length, ipAddress, port);
-        return sendPacket;
+        return new DatagramPacket(sendData, sendData.length, ipAddress, port);
     }
 
     private <T> T receiveResponse(DatagramSocket clientSocket, Class<T> classOfT)
@@ -514,6 +535,30 @@ public class GreeAirDevice {
         return isBound;
     }
 
+    public void setEncryptionType(EncryptionTypes value) {
+        logger.debug("setEncriptionType called for device: {}, to change from: {}, to: {}", getName(), encType, value);
+        if (value == EncryptionTypes.UNKNOWN && encType == EncryptionTypes.UNKNOWN) {
+            logger.debug("Set default ECB type for device: {}", getName());
+            encType = EncryptionTypes.ECB;
+        } else if (value == EncryptionTypes.UNKNOWN) {
+            logger.debug("Trying to set the encription type to UNKNOWN, no change made for device: {}", getName());
+        } else {
+            encType = value;
+        }
+    }
+
+    public EncryptionTypes getEncryptionType() {
+        return encType;
+    }
+
+    public void setRefreshInterval(int value) {
+        refreshInterval = value;
+    }
+
+    public int getRefreshInterval() {
+        return refreshInterval;
+    }
+
     public byte[] getKey() {
         return encKey.getBytes(StandardCharsets.UTF_8);
     }
@@ -523,7 +568,12 @@ public class GreeAirDevice {
     }
 
     public String getName() {
-        return scanResponseGson.isPresent() ? scanResponseGson.get().packJson.name : "";
+        if (scanResponseGson.isPresent()) {
+            String name = scanResponseGson.get().packJson.name;
+            return name.trim().isEmpty() ? getId() : name;
+        }
+
+        return "";
     }
 
     public String getVendor() {

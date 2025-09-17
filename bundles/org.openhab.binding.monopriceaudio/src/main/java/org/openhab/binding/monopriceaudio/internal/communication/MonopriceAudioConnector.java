@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -52,7 +52,7 @@ public abstract class MonopriceAudioConnector {
     private boolean connected;
     private boolean pingResponseOnly;
 
-    private @Nullable AmplifierModel amp;
+    protected AmplifierModel amp = AmplifierModel.MONOPRICE;
 
     private @Nullable Thread readerThread;
 
@@ -75,15 +75,6 @@ public abstract class MonopriceAudioConnector {
     protected void setConnected(boolean connected) {
         this.connected = connected;
         this.pingResponseOnly = false;
-    }
-
-    /**
-     * Set the AmplifierModel
-     *
-     * @param amp the AmplifierModel being used
-     */
-    protected void setAmplifierModel(AmplifierModel amp) {
-        this.amp = amp;
     }
 
     /**
@@ -177,13 +168,13 @@ public abstract class MonopriceAudioConnector {
     public void sendPing() throws MonopriceAudioException {
         pingResponseOnly = true;
         // poll zone 1 status only to see if the amp responds
-        queryZone(amp.getZoneIds().get(0));
+        queryZone(amp.getZoneIds().iterator().next());
     }
 
     /**
      * Get the status of a zone
      *
-     * @param zone the zone to query for current status
+     * @param zoneId the zone to query for current status
      *
      * @throws MonopriceAudioException - In case of any problem
      */
@@ -195,7 +186,7 @@ public abstract class MonopriceAudioConnector {
      * Monoprice 31028 and OSD Audio PAM1270 amps do not report treble, bass and balance with the main status inquiry,
      * so we must send three extra commands to retrieve those values
      *
-     * @param zone the zone to query for current treble, bass and balance status
+     * @param zoneId the zone to query for current treble, bass and balance status
      *
      * @throws MonopriceAudioException - In case of any problem
      */

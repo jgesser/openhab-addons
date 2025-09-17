@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,6 +17,7 @@ import java.util.List;
 
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSensor.ShellyMotionSettings;
+import org.openhab.binding.shelly.internal.api2.Shelly2ApiJsonDTO.Shelly2APClientList;
 import org.openhab.core.thing.CommonTriggerEvents;
 
 import com.google.gson.annotations.SerializedName;
@@ -76,11 +77,13 @@ public class Shelly1ApiJsonDTO {
     public static final String SHELLY_EVENT_OUT_OFF = "out_off";
     public static final String SHELLY_EVENT_SHORTPUSH = "shortpush";
     public static final String SHELLY_EVENT_LONGPUSH = "longpush";
+
     // Button
     public static final String SHELLY_EVENT_DOUBLE_SHORTPUSH = "double_shortpush";
     public static final String SHELLY_EVENT_TRIPLE_SHORTPUSH = "triple_shortpush";
     public static final String SHELLY_EVENT_SHORT_LONGTPUSH = "shortpush_longpush";
     public static final String SHELLY_EVENT_LONG_SHORTPUSH = "longpush_shortpush";
+    public static final String SHELLY_EVENT_HOLDING = "holding";
 
     // Dimmer
     public static final String SHELLY_EVENT_BTN1_ON = "btn1_on";
@@ -242,6 +245,7 @@ public class Shelly1ApiJsonDTO {
     public static final String SHELLY_BTNEVENT_LONGPUSH = "L";
     public static final String SHELLY_BTNEVENT_SHORTLONGPUSH = "SL";
     public static final String SHELLY_BTNEVENT_LONGSHORTPUSH = "LS";
+    public static final String SHELLY_BTNEVENT_HOLDING = "H";
 
     public static final String SHELLY_TEMP_CELSIUS = "C";
     public static final String SHELLY_TEMP_FAHRENHEIT = "F";
@@ -261,6 +265,10 @@ public class Shelly1ApiJsonDTO {
 
     public static class ShellySettingsDevice {
         public String type;
+        public String mode; // Gen 1
+        public String id; // Gen2: service name
+        public String name; // Gen2: configured device name
+        public String profile; // Gen 2
         public String mac;
         public String hostname;
         public String fw;
@@ -448,6 +456,7 @@ public class Shelly1ApiJsonDTO {
     }
 
     public static class ShellySettingsRoller {
+        public Integer id;
         public Double maxtime;
         @SerializedName("maxtime_open")
         public Double maxtimeOpen;
@@ -518,6 +527,15 @@ public class Shelly1ApiJsonDTO {
     }
 
     public static class ShellyInputState {
+        public ShellyInputState() {
+        }
+
+        public ShellyInputState(int id) {
+            input = id;
+            event = "";
+            eventCount = 0;
+        }
+
         public Integer input;
 
         // Shelly Button
@@ -547,6 +565,24 @@ public class Shelly1ApiJsonDTO {
 
         public Double pf; // 3EM
         public Double current; // 3EM
+        public Double frequency; // Gen4
+    }
+
+    public static class ShellyEMNCurrentSettings {
+        // "emeter_n":{ "range_extender":1, "mismatch_threshold":0.00}
+        @SerializedName("range_extender")
+        public Integer rangeExtender;
+        @SerializedName("mismatch_threshold")
+        public Double mismatchThreshold;
+    }
+
+    public static class ShellyEMNCurrentStatus {
+        // "emeter_n":{"current":2.28,"ixsum":2.29,"mismatch":false,"is_valid":true}
+        public Double current;
+        public Double ixsum;
+        public Boolean mismatch;
+        @SerializedName("is_valid")
+        public Boolean isValid;
     }
 
     public static class ShellySettingsUpdate {
@@ -563,7 +599,6 @@ public class Shelly1ApiJsonDTO {
 
     public static class ShellySettingsGlobal {
         // https://shelly-api-docs.shelly.cloud/#shelly1pm-settings
-        public ShellySettingsDevice device = new ShellySettingsDevice();
         @SerializedName("wifi_ap")
         public ShellySettingsWiFiAp wifiAp = new ShellySettingsWiFiAp();
         @SerializedName("wifi_sta")
@@ -574,6 +609,7 @@ public class Shelly1ApiJsonDTO {
         public Boolean wifiRecoveryReboot; // FW 1.10+
         @SerializedName("ap_roaming")
         public ShellyApRoaming apRoaming; // FW 1.10+
+        public Boolean rangeExtender; // Gen2: Range extender
 
         public ShellySettingsMqtt mqtt = new ShellySettingsMqtt();
         public ShellySettingsSntp sntp = new ShellySettingsSntp();
@@ -618,6 +654,8 @@ public class Shelly1ApiJsonDTO {
         public @Nullable ArrayList<ShellySettingsRoller> rollers;
         public @Nullable ArrayList<ShellySettingsRgbwLight> lights;
         public @Nullable ArrayList<ShellySettingsEMeter> emeters;
+        @SerializedName("emeter_n")
+        public ShellyEMNCurrentSettings neutralCurrent;
         public @Nullable ArrayList<ShellyThermnostat> thermostats; // TRV
 
         @SerializedName("ext_switch_enable")
@@ -720,6 +758,7 @@ public class Shelly1ApiJsonDTO {
                                                                                     // /settings/sta for details
         public ShellyStatusCloud cloud = new ShellyStatusCloud();
         public ShellyStatusMqtt mqtt = new ShellyStatusMqtt();
+        public Shelly2APClientList rangeExtender;
 
         public String time;
         public Integer serial = -1;
@@ -742,8 +781,12 @@ public class Shelly1ApiJsonDTO {
         public ArrayList<ShellySettingsMeter> meters;
 
         public ArrayList<ShellySettingsEMeter> emeters;
+        @SerializedName("emeter_n")
+        public ShellyEMNCurrentStatus neutralCurrent;
+
         public Double totalCurrent;
         public Double totalPower;
+        public Double totalKWH;
         public Double totalReturned;
 
         @SerializedName("ext_temperature")
@@ -787,6 +830,13 @@ public class Shelly1ApiJsonDTO {
     }
 
     public static class ShellySettingsInput {
+        public ShellySettingsInput() {
+        }
+
+        public ShellySettingsInput(String btnType) {
+            this.btnType = btnType;
+        }
+
         @SerializedName("btn_type")
         public String btnType;
     }
@@ -951,7 +1001,7 @@ public class Shelly1ApiJsonDTO {
         public static class ShellySensorBat {
             public Double value; // estimated remaining battery capacity in %
             public Double voltage; // battery voltage
-        };
+        }
 
         // Door/Window sensor
         public static class ShellySensorState {
@@ -1144,6 +1194,15 @@ public class Shelly1ApiJsonDTO {
         // Shelly TRV
         public Boolean calibrated;
         public ArrayList<ShellyThermnostat> thermostats;
+
+        // Shelly BLU Remote
+        public Integer channel;
+        public String direction;
+        public Integer steps;
+        public Double rotationX;
+        public Double rotationY;
+        public Double rotationZ;
+        public Double distance;
     }
 
     public static class ShellySettingsSmoke {
@@ -1300,6 +1359,8 @@ public class Shelly1ApiJsonDTO {
             case SHELLY_BTNEVENT_LONGSHORTPUSH:
             case SHELLY_EVENT_LONG_SHORTPUSH:
                 return "LONG_SHORT_PRESSED";
+            case SHELLY_EVENT_HOLDING:
+                return SHELLY_EVENT_HOLDING;
             default:
                 return "";
         }

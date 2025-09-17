@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -198,9 +198,8 @@ public class JablotronJa100FHandler extends JablotronAlarmHandler {
             }
 
             // update events
-            List<JablotronHistoryDataEvent> events = sendGetEventHistory();
-            if (events != null && !events.isEmpty()) {
-                JablotronHistoryDataEvent event = events.get(0);
+            JablotronHistoryDataEvent event = sendGetEventHistory();
+            if (event != null) {
                 updateLastEvent(event);
             }
             return true;
@@ -277,7 +276,7 @@ public class JablotronJa100FHandler extends JablotronAlarmHandler {
         if (id.startsWith("SEC-")) {
             newState = new StringType(state.getState());
         } else if (id.startsWith("PG-")) {
-            newState = "ON".equals(state.getState()) ? OnOffType.ON : OnOffType.OFF;
+            newState = OnOffType.from("ON".equals(state.getState()));
         } else if (id.startsWith("THM-")) {
             newState = new QuantityType<>(state.getTemperature(), SIUnits.CELSIUS);
         } else {

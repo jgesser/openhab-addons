@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -37,11 +37,12 @@ import org.asynchttpclient.Response;
 import org.asynchttpclient.oauth.ConsumerKey;
 import org.asynchttpclient.oauth.OAuthSignatureCalculator;
 import org.asynchttpclient.oauth.RequestToken;
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.tellstick.internal.TelldusBindingException;
 import org.openhab.binding.tellstick.internal.handler.TelldusDeviceController;
-import org.openhab.binding.tellstick.internal.live.xml.TelldusLiveResponse;
-import org.openhab.binding.tellstick.internal.live.xml.TellstickNetDevice;
+import org.openhab.binding.tellstick.internal.live.dto.TelldusLiveResponse;
+import org.openhab.binding.tellstick.internal.live.dto.TellstickNetDevice;
 import org.openhab.core.library.types.IncreaseDecreaseType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.PercentType;
@@ -65,13 +66,14 @@ import org.tellstick.device.iface.SwitchableDevice;
  *
  * @author Jarle Hjortland - Initial contribution
  */
+@NonNullByDefault
 public class TelldusLiveDeviceController implements DeviceChangeListener, SensorListener, TelldusDeviceController {
     private final Logger logger = LoggerFactory.getLogger(TelldusLiveDeviceController.class);
     private long lastSend = 0;
     public static final long DEFAULT_INTERVAL_BETWEEN_SEND = 250;
     private static final int REQUEST_TIMEOUT_MS = 15000;
-    private AsyncHttpClient client;
-    static final String HTTP_API_TELLDUS_COM_XML = "http://api.telldus.com/xml/";
+    private @Nullable AsyncHttpClient client;
+    static final String HTTP_API_TELLDUS_COM_XML = "http://pa-api.telldus.com/xml/";
     static final String HTTP_TELLDUS_CLIENTS = HTTP_API_TELLDUS_COM_XML + "clients/list";
     static final String HTTP_TELLDUS_DEVICES = HTTP_API_TELLDUS_COM_XML + "devices/list?supportedMethods=19";
     static final String HTTP_TELLDUS_SENSORS = HTTP_API_TELLDUS_COM_XML
@@ -93,10 +95,13 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
 
     @Override
     public void dispose() {
-        try {
-            client.close();
-        } catch (Exception e) {
-            logger.debug("Failed to close client", e);
+        AsyncHttpClient client = this.client;
+        if (client != null) {
+            try {
+                client.close();
+            } catch (Exception e) {
+                logger.debug("Failed to close client", e);
+            }
         }
     }
 
@@ -104,9 +109,9 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
         ConsumerKey consumer = new ConsumerKey(publicKey, privateKey);
         RequestToken user = new RequestToken(token, tokenSecret);
         OAuthSignatureCalculator calc = new OAuthSignatureCalculator(consumer, user);
-        this.client = new DefaultAsyncHttpClient(createAsyncHttpClientConfig());
+        AsyncHttpClient client = this.client = new DefaultAsyncHttpClient(createAsyncHttpClientConfig());
+        client.setSignatureCalculator(calc);
         try {
-            this.client.setSignatureCalculator(calc);
             Response response = client.prepareGet(HTTP_TELLDUS_CLIENTS).execute().get();
             logger.debug("Response {} statusText {}", response.getResponseBody(), response.getStatusText());
         } catch (InterruptedException | ExecutionException e) {
@@ -129,10 +134,10 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
                 turnOn(device);
             } else if (command == OnOffType.OFF) {
                 turnOff(device);
-            } else if (command instanceof PercentType) {
-                dim(device, (PercentType) command);
-            } else if (command instanceof IncreaseDecreaseType) {
-                increaseDecrease(device, ((IncreaseDecreaseType) command));
+            } else if (command instanceof PercentType percentCommand) {
+                dim(device, percentCommand);
+            } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                increaseDecrease(device, increaseDecreaseCommand);
             }
         } else if (device instanceof SwitchableDevice) {
             if (command == OnOffType.ON) {
@@ -172,22 +177,21 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
             turnOff(dev);
         } else if (value == 100 && dev instanceof TellstickNetDevice) {
             turnOn(dev);
-        } else if (dev instanceof TellstickNetDevice
-                && (((TellstickNetDevice) dev).getMethods() & JNA.CLibrary.TELLSTICK_DIM) > 0) {
+        } else if (dev instanceof TellstickNetDevice device && (device.getMethods() & JNA.CLibrary.TELLSTICK_DIM) > 0) {
             long tdVal = Math.round((value / 100) * 255);
             TelldusLiveResponse response = callRestMethod(String.format(HTTP_TELLDUS_DEVICE_DIM, dev.getId(), tdVal),
                     TelldusLiveResponse.class);
-            handleResponse((TellstickNetDevice) dev, response);
+            handleResponse(device, response);
         } else {
             throw new TelldusBindingException("Cannot send DIM to " + dev);
         }
     }
 
     private void turnOff(Device dev) throws TellstickException {
-        if (dev instanceof TellstickNetDevice) {
+        if (dev instanceof TellstickNetDevice device) {
             TelldusLiveResponse response = callRestMethod(String.format(HTTP_TELLDUS_DEVICE_TURNOFF, dev.getId()),
                     TelldusLiveResponse.class);
-            handleResponse((TellstickNetDevice) dev, response);
+            handleResponse(device, response);
         } else {
             throw new TelldusBindingException("Cannot send OFF to " + dev);
         }
@@ -197,28 +201,28 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
         if (response == null || (response.status == null && response.error == null)) {
             throw new TelldusBindingException("No response " + response);
         } else if (response.error != null) {
-            if (response.error.equals("The client for this device is currently offline")) {
+            if ("The client for this device is currently offline".equals(response.error)) {
                 device.setOnline(false);
                 device.setUpdated(true);
             }
             throw new TelldusBindingException("Error " + response.error);
-        } else if (!response.status.trim().equals("success")) {
+        } else if (!"success".equals(response.status.trim())) {
             throw new TelldusBindingException("Response " + response.status);
         }
     }
 
     private void turnOn(Device dev) throws TellstickException {
-        if (dev instanceof TellstickNetDevice) {
+        if (dev instanceof TellstickNetDevice device) {
             TelldusLiveResponse response = callRestMethod(String.format(HTTP_TELLDUS_DEVICE_TURNON, dev.getId()),
                     TelldusLiveResponse.class);
-            handleResponse((TellstickNetDevice) dev, response);
+            handleResponse(device, response);
         } else {
             throw new TelldusBindingException("Cannot send ON to " + dev);
         }
     }
 
     @Override
-    public State calcState(Device dev) {
+    public @Nullable State calcState(Device dev) {
         TellstickNetDevice device = (TellstickNetDevice) dev;
         State st = null;
         if (device.getOnline()) {
@@ -275,12 +279,12 @@ public class TelldusLiveDeviceController implements DeviceChangeListener, Sensor
     }
 
     @Override
-    public void onRequest(TellstickSensorEvent newDevices) {
+    public void onRequest(@NonNullByDefault({}) TellstickSensorEvent newDevices) {
         setLastSend(newDevices.getTimestamp());
     }
 
     @Override
-    public void onRequest(TellstickDeviceEvent newDevices) {
+    public void onRequest(@NonNullByDefault({}) TellstickDeviceEvent newDevices) {
         setLastSend(newDevices.getTimestamp());
     }
 

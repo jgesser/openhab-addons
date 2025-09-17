@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -25,11 +25,11 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.openhab.binding.hue.internal.dto.ColorTemperature;
-import org.openhab.binding.hue.internal.dto.FullGroup;
-import org.openhab.binding.hue.internal.dto.Scene;
-import org.openhab.binding.hue.internal.dto.State;
-import org.openhab.binding.hue.internal.dto.StateUpdate;
+import org.openhab.binding.hue.internal.api.dto.clip1.ColorTemperature;
+import org.openhab.binding.hue.internal.api.dto.clip1.FullGroup;
+import org.openhab.binding.hue.internal.api.dto.clip1.Scene;
+import org.openhab.binding.hue.internal.api.dto.clip1.State;
+import org.openhab.binding.hue.internal.api.dto.clip1.StateUpdate;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.IncreaseDecreaseType;
@@ -155,8 +155,7 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                 return null;
             }
             ThingHandler handler = bridge.getHandler();
-            if (handler instanceof HueBridgeHandler) {
-                HueClient bridgeHandler = (HueClient) handler;
+            if (handler instanceof HueClient bridgeHandler) {
                 hueClient = bridgeHandler;
                 bridgeHandler.registerGroupStatusListener(this);
             } else {
@@ -191,8 +190,7 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
         StateUpdate newState = null;
         switch (channel) {
             case CHANNEL_COLOR:
-                if (command instanceof HSBType) {
-                    HSBType hsbCommand = (HSBType) command;
+                if (command instanceof HSBType hsbCommand) {
                     if (hsbCommand.getBrightness().intValue() == 0) {
                         newState = LightStateConverter.toOnOffLightState(OnOffType.OFF);
                     } else {
@@ -200,35 +198,35 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                         newState.setOn(true);
                         newState.setTransitionTime(fadeTime);
                     }
-                } else if (command instanceof PercentType) {
-                    newState = LightStateConverter.toBrightnessLightState((PercentType) command);
+                } else if (command instanceof PercentType percentCommand) {
+                    newState = LightStateConverter.toBrightnessLightState(percentCommand);
                     newState.setTransitionTime(fadeTime);
-                } else if (command instanceof OnOffType) {
-                    newState = LightStateConverter.toOnOffLightState((OnOffType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    newState = convertBrightnessChangeToStateUpdate((IncreaseDecreaseType) command, group);
+                } else if (command instanceof OnOffType onOffCommand) {
+                    newState = LightStateConverter.toOnOffLightState(onOffCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    newState = convertBrightnessChangeToStateUpdate(increaseDecreaseCommand, group);
                     if (newState != null) {
                         newState.setTransitionTime(fadeTime);
                     }
                 }
                 break;
             case CHANNEL_COLORTEMPERATURE:
-                if (command instanceof PercentType) {
-                    newState = LightStateConverter.toColorTemperatureLightStateFromPercentType((PercentType) command,
+                if (command instanceof PercentType percentCommand) {
+                    newState = LightStateConverter.toColorTemperatureLightStateFromPercentType(percentCommand,
                             colorTemperatureCapabilties);
                     newState.setTransitionTime(fadeTime);
-                } else if (command instanceof OnOffType) {
-                    newState = LightStateConverter.toOnOffLightState((OnOffType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    newState = convertColorTempChangeToStateUpdate((IncreaseDecreaseType) command, group);
+                } else if (command instanceof OnOffType onOffCommand) {
+                    newState = LightStateConverter.toOnOffLightState(onOffCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    newState = convertColorTempChangeToStateUpdate(increaseDecreaseCommand, group);
                     if (newState != null) {
                         newState.setTransitionTime(fadeTime);
                     }
                 }
                 break;
             case CHANNEL_COLORTEMPERATURE_ABS:
-                if (command instanceof QuantityType) {
-                    QuantityType<?> convertedCommand = ((QuantityType<?>) command).toInvertibleUnit(Units.KELVIN);
+                if (command instanceof QuantityType<?> quantityCommand) {
+                    QuantityType<?> convertedCommand = quantityCommand.toInvertibleUnit(Units.KELVIN);
                     if (convertedCommand != null) {
                         newState = LightStateConverter.toColorTemperatureLightState(convertedCommand.intValue(),
                                 colorTemperatureCapabilties);
@@ -237,20 +235,20 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                         logger.warn("Unable to convert unit from '{}' to '{}'. Skipping command.",
                                 ((QuantityType<?>) command).getUnit(), Units.KELVIN);
                     }
-                } else if (command instanceof DecimalType) {
-                    newState = LightStateConverter.toColorTemperatureLightState(((DecimalType) command).intValue(),
+                } else if (command instanceof DecimalType decimalCommand) {
+                    newState = LightStateConverter.toColorTemperatureLightState(decimalCommand.intValue(),
                             colorTemperatureCapabilties);
                     newState.setTransitionTime(fadeTime);
                 }
                 break;
             case CHANNEL_BRIGHTNESS:
-                if (command instanceof PercentType) {
-                    newState = LightStateConverter.toBrightnessLightState((PercentType) command);
+                if (command instanceof PercentType percentCommand) {
+                    newState = LightStateConverter.toBrightnessLightState(percentCommand);
                     newState.setTransitionTime(fadeTime);
-                } else if (command instanceof OnOffType) {
-                    newState = LightStateConverter.toOnOffLightState((OnOffType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    newState = convertBrightnessChangeToStateUpdate((IncreaseDecreaseType) command, group);
+                } else if (command instanceof OnOffType onOffCommand) {
+                    newState = LightStateConverter.toOnOffLightState(onOffCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    newState = convertBrightnessChangeToStateUpdate(increaseDecreaseCommand, group);
                     if (newState != null) {
                         newState.setTransitionTime(fadeTime);
                     }
@@ -264,8 +262,8 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                 }
                 break;
             case CHANNEL_SWITCH:
-                if (command instanceof OnOffType) {
-                    newState = LightStateConverter.toOnOffLightState((OnOffType) command);
+                if (command instanceof OnOffType onOffCommand) {
+                    newState = LightStateConverter.toOnOffLightState(onOffCommand);
                 }
                 lastColorTemp = lastSentColorTemp;
                 if (newState != null && lastColorTemp != null) {
@@ -276,8 +274,8 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
                 }
                 break;
             case CHANNEL_ALERT:
-                if (command instanceof StringType) {
-                    newState = LightStateConverter.toAlertState((StringType) command);
+                if (command instanceof StringType stringCommand) {
+                    newState = LightStateConverter.toAlertState(stringCommand);
                     if (newState == null) {
                         // Unsupported StringType is passed. Log a warning
                         // message and return.
@@ -455,11 +453,11 @@ public class HueGroupHandler extends BaseThingHandler implements HueLightActions
             FullGroup group = handler.getGroupById(groupId);
             if (group != null) {
                 stateOptions = updatedScenes.stream().filter(scene -> scene.isApplicableTo(group))
-                        .map(Scene::toStateOption).collect(Collectors.toList());
-                consoleScenesList = updatedScenes
-                        .stream().filter(scene -> scene.isApplicableTo(group)).map(scene -> "Id is \"" + scene.getId()
-                                + "\" for scene \"" + scene.toStateOption().getLabel() + "\"")
-                        .collect(Collectors.toList());
+                        .map(Scene::toStateOption).toList();
+                consoleScenesList = updatedScenes.stream().filter(scene -> scene.isApplicableTo(group))
+                        .map(scene -> "Id is \"" + scene.getId() + "\" for scene \"" + scene.toStateOption().getLabel()
+                                + "\"")
+                        .toList();
             }
         }
         stateDescriptionOptionProvider.setStateOptions(new ChannelUID(getThing().getUID(), CHANNEL_SCENE),

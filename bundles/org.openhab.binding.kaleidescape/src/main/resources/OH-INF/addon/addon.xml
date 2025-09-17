@@ -8,4 +8,16 @@
 	<description>Controls a Kaleidescape Movie Player</description>
 	<connection>local</connection>
 
+	<discovery-methods>
+		<discovery-method>
+			<service-type>sddp</service-type>
+			<match-properties>
+				<match-property>
+					<name>manufacturer</name>
+					<regex>(?i).*kaleidescape.*</regex>
+				</match-property>
+			</match-properties>
+		</discovery-method>
+	</discovery-methods>
+
 </addon:addon>

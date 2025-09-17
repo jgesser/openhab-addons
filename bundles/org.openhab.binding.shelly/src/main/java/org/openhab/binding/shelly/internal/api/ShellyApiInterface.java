@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,6 +15,7 @@ package org.openhab.binding.shelly.internal.api;
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyOtaCheckResult;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyRollerStatus;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellySettingsDevice;
@@ -26,6 +27,7 @@ import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusLi
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusRelay;
 import org.openhab.binding.shelly.internal.api1.Shelly1ApiJsonDTO.ShellyStatusSensor;
 import org.openhab.binding.shelly.internal.config.ShellyThingConfiguration;
+import org.openhab.core.thing.ThingTypeUID;
 
 /**
  * The {@link ShellyApiInterface} Defines device API
@@ -42,7 +44,8 @@ public interface ShellyApiInterface {
 
     ShellySettingsDevice getDeviceInfo() throws ShellyApiException;
 
-    ShellyDeviceProfile getDeviceProfile(String thingType) throws ShellyApiException;
+    ShellyDeviceProfile getDeviceProfile(ThingTypeUID thingTypeUID, @Nullable ShellySettingsDevice device)
+            throws ShellyApiException;
 
     ShellySettingsStatus getStatus() throws ShellyApiException;
 
@@ -82,7 +85,7 @@ public interface ShellyApiInterface {
 
     void setValveMode(int id, boolean auto) throws ShellyApiException;
 
-    void setValveTemperature(int valveId, int value) throws ShellyApiException;
+    void setValveTemperature(int valveId, double value) throws ShellyApiException;
 
     void setValveProfile(int valveId, int value) throws ShellyApiException;
 
@@ -110,7 +113,7 @@ public interface ShellyApiInterface {
 
     boolean setBluetooth(boolean enable) throws ShellyApiException;
 
-    String deviceReboot() throws ShellyApiException;
+    void deviceReboot() throws ShellyApiException;
 
     String setDebug(boolean enabled) throws ShellyApiException;
 
@@ -134,7 +137,7 @@ public interface ShellyApiInterface {
 
     void setActionURLs() throws ShellyApiException;
 
-    void sendIRKey(String keyCode) throws ShellyApiException, IllegalArgumentException;
+    void sendIRKey(String keyCode) throws ShellyApiException;
 
     void postEvent(String device, String index, String event, Map<String, String> parms) throws ShellyApiException;
 

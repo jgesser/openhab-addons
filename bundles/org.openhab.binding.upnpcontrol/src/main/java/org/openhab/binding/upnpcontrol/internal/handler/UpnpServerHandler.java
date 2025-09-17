@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
+import org.jupnp.UpnpService;
 import org.openhab.binding.upnpcontrol.internal.UpnpDynamicCommandDescriptionProvider;
 import org.openhab.binding.upnpcontrol.internal.UpnpDynamicStateDescriptionProvider;
 import org.openhab.binding.upnpcontrol.internal.config.UpnpControlBindingConfiguration;
@@ -100,12 +101,13 @@ public class UpnpServerHandler extends UpnpHandler {
 
     protected @NonNullByDefault({}) UpnpControlServerConfiguration config;
 
-    public UpnpServerHandler(Thing thing, UpnpIOService upnpIOService,
+    public UpnpServerHandler(Thing thing, UpnpIOService upnpIOService, UpnpService upnpService,
             ConcurrentMap<String, UpnpRendererHandler> upnpRenderers,
             UpnpDynamicStateDescriptionProvider upnpStateDescriptionProvider,
             UpnpDynamicCommandDescriptionProvider upnpCommandDescriptionProvider,
             UpnpControlBindingConfiguration configuration) {
-        super(thing, upnpIOService, configuration, upnpStateDescriptionProvider, upnpCommandDescriptionProvider);
+        super(thing, upnpIOService, upnpService, configuration, upnpStateDescriptionProvider,
+                upnpCommandDescriptionProvider);
         this.upnpRenderers = upnpRenderers;
 
         // put root as highest level in parent map
@@ -216,7 +218,7 @@ public class UpnpServerHandler extends UpnpHandler {
         }
 
         if (browsed) {
-            isBrowsing = new CompletableFuture<Boolean>();
+            isBrowsing = new CompletableFuture<>();
 
             Map<String, String> inputs = new HashMap<>();
             inputs.put("ObjectID", objectID);
@@ -262,7 +264,7 @@ public class UpnpServerHandler extends UpnpHandler {
         }
 
         if (browsed) {
-            isBrowsing = new CompletableFuture<Boolean>();
+            isBrowsing = new CompletableFuture<>();
 
             Map<String, String> inputs = new HashMap<>();
             inputs.put("ContainerID", containerID);
@@ -321,8 +323,8 @@ public class UpnpServerHandler extends UpnpHandler {
     private void handleCommandUpnpRenderer(ChannelUID channelUID, Command command) {
         UpnpRendererHandler renderer = null;
         UpnpRendererHandler previousRenderer = currentRendererHandler;
-        if (command instanceof StringType) {
-            renderer = (upnpRenderers.get(((StringType) command).toString()));
+        if (command instanceof StringType stringCommand) {
+            renderer = (upnpRenderers.get(stringCommand.toString()));
             currentRendererHandler = renderer;
             if (config.filter) {
                 // only refresh title list if filtering by renderer capabilities
@@ -687,7 +689,7 @@ public class UpnpServerHandler extends UpnpHandler {
                 updateTitleSelection(removeDuplicates(list));
             }
         } else {
-            updateTitleSelection(new ArrayList<UpnpEntry>());
+            updateTitleSelection(new ArrayList<>());
         }
         browseUp = false;
         if (browsing != null) {

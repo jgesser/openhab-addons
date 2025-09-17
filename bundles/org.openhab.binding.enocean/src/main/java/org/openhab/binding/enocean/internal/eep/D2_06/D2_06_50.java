@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -35,7 +35,6 @@ import org.openhab.core.types.UnDefType;
 public class D2_06_50 extends _VLDMessage {
 
     public D2_06_50() {
-        super();
     }
 
     public D2_06_50(ERP1Message packet) {
@@ -142,7 +141,7 @@ public class D2_06_50 extends _VLDMessage {
                 case CHANNEL_BATTERY_LEVEL:
                     return new DecimalType(bytes[6] & 0x7f);
                 case CHANNEL_BATTERYLOW:
-                    return getBit(bytes[6], 7) ? OnOffType.ON : OnOffType.OFF;
+                    return OnOffType.from(getBit(bytes[6], 7));
             }
         }
 

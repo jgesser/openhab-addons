@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -51,6 +51,7 @@ import org.openhab.core.library.types.StopMoveType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.library.types.UpDownType;
 import org.openhab.core.library.unit.Units;
+import org.openhab.core.semantics.model.DefaultSemanticTags.Equipment;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.Channel;
 import org.openhab.core.thing.ChannelUID;
@@ -193,8 +194,8 @@ public class HDPowerViewShadeHandler extends AbstractHubbedThingHandler {
             HubShadeTimeoutException {
         switch (channelId) {
             case CHANNEL_SHADE_POSITION:
-                if (command instanceof PercentType) {
-                    moveShade(PRIMARY_POSITION, ((PercentType) command).intValue(), webTargets, shadeId);
+                if (command instanceof PercentType percentCommand) {
+                    moveShade(PRIMARY_POSITION, percentCommand.intValue(), webTargets, shadeId);
                 } else if (command instanceof UpDownType) {
                     moveShade(PRIMARY_POSITION, UpDownType.UP == command ? 0 : 100, webTargets, shadeId);
                 } else if (command instanceof StopMoveType) {
@@ -207,16 +208,16 @@ public class HDPowerViewShadeHandler extends AbstractHubbedThingHandler {
                 break;
 
             case CHANNEL_SHADE_VANE:
-                if (command instanceof PercentType) {
-                    moveShade(VANE_TILT_POSITION, ((PercentType) command).intValue(), webTargets, shadeId);
+                if (command instanceof PercentType percentCommand) {
+                    moveShade(VANE_TILT_POSITION, percentCommand.intValue(), webTargets, shadeId);
                 } else if (command instanceof OnOffType) {
                     moveShade(VANE_TILT_POSITION, OnOffType.ON == command ? 100 : 0, webTargets, shadeId);
                 }
                 break;
 
             case CHANNEL_SHADE_SECONDARY_POSITION:
-                if (command instanceof PercentType) {
-                    moveShade(SECONDARY_POSITION, ((PercentType) command).intValue(), webTargets, shadeId);
+                if (command instanceof PercentType percentCommand) {
+                    moveShade(SECONDARY_POSITION, percentCommand.intValue(), webTargets, shadeId);
                 } else if (command instanceof UpDownType) {
                     moveShade(SECONDARY_POSITION, UpDownType.UP == command ? 0 : 100, webTargets, shadeId);
                 } else if (command instanceof StopMoveType) {
@@ -229,11 +230,11 @@ public class HDPowerViewShadeHandler extends AbstractHubbedThingHandler {
                 break;
 
             case CHANNEL_SHADE_COMMAND:
-                if (command instanceof StringType) {
-                    if (COMMAND_IDENTIFY.equals(((StringType) command).toString())) {
+                if (command instanceof StringType stringCommand) {
+                    if (COMMAND_IDENTIFY.equals(stringCommand.toString())) {
                         logger.debug("Identify shade {}", shadeId);
                         identifyShade(webTargets, shadeId);
-                    } else if (COMMAND_CALIBRATE.equals(((StringType) command).toString())) {
+                    } else if (COMMAND_CALIBRATE.equals(stringCommand.toString())) {
                         logger.debug("Calibrate shade {}", shadeId);
                         calibrateShade(webTargets, shadeId);
                     }
@@ -276,6 +277,10 @@ public class HDPowerViewShadeHandler extends AbstractHubbedThingHandler {
         this.capabilities = capabilities;
 
         updateDynamicChannels(capabilities, shade);
+
+        if (ShadeCapabilitiesDatabase.DRAPES_TYPES.contains(shade.type)) {
+            updateThing(editThing().withSemanticEquipmentTag(Equipment.DRAPES).build());
+        }
     }
 
     private Capabilities getCapabilitiesOrDefault() {
@@ -423,7 +428,7 @@ public class HDPowerViewShadeHandler extends AbstractHubbedThingHandler {
                 updateState(CHANNEL_SHADE_BATTERY_LEVEL, UnDefType.UNDEF);
                 return;
         }
-        updateState(CHANNEL_SHADE_LOW_BATTERY, batteryStatus == 1 ? OnOffType.ON : OnOffType.OFF);
+        updateState(CHANNEL_SHADE_LOW_BATTERY, OnOffType.from(batteryStatus == 1));
         updateState(CHANNEL_SHADE_BATTERY_LEVEL, new DecimalType(mappedValue));
     }
 

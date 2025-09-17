@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -16,7 +16,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.openhab.core.thing.ThingTypeUID;
 
 /**
- * The {@link TadoBinding} class defines common constants, which are
+ * The {@link TadoBindingConstants} class defines common constants, which are
  * used across the whole binding.
  *
  * @author Dennis Frommknecht - Initial contribution
@@ -36,12 +36,13 @@ public class TadoBindingConstants {
     // List of all Channel IDs
     public static final String PROPERTY_HOME_TEMPERATURE_UNIT = "temperatureUnit";
 
-    public static enum TemperatureUnit {
+    public enum TemperatureUnit {
         CELSIUS,
         FAHRENHEIT
     }
 
     public static final String CHANNEL_HOME_PRESENCE_MODE = "homePresence";
+    public static final String CHANNEL_HOME_GEOFENCING_ENABLED = "geofencingEnabled";
 
     public static final String CHANNEL_ZONE_CURRENT_TEMPERATURE = "currentTemperature";
     public static final String CHANNEL_ZONE_HUMIDITY = "humidity";
@@ -52,7 +53,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_HVAC_MODE = "hvacMode";
 
-    public static enum HvacMode {
+    public enum HvacMode {
         OFF,
         HEAT,
         COOL,
@@ -69,7 +70,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_FAN_SPEED = "fanspeed";
 
-    public static enum FanSpeed {
+    public enum FanSpeed {
         LOW,
         MIDDLE,
         HIGH,
@@ -78,7 +79,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_FAN_LEVEL = "fanLevel";
 
-    public static enum FanLevel {
+    public enum FanLevel {
         SILENT,
         LEVEL1,
         LEVEL2,
@@ -90,7 +91,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_HORIZONTAL_SWING = "horizontalSwing";
 
-    public static enum HorizontalSwing {
+    public enum HorizontalSwing {
         OFF,
         ON,
         LEFT,
@@ -103,7 +104,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_VERTICAL_SWING = "verticalSwing";
 
-    public static enum VerticalSwing {
+    public enum VerticalSwing {
         OFF,
         ON,
         UP,
@@ -116,7 +117,7 @@ public class TadoBindingConstants {
 
     public static final String CHANNEL_ZONE_OPERATION_MODE = "operationMode";
 
-    public static enum OperationMode {
+    public enum OperationMode {
         SCHEDULE,
         TIMER,
         MANUAL,
@@ -130,18 +131,21 @@ public class TadoBindingConstants {
     public static final String CHANNEL_ZONE_BATTERY_LOW_ALARM = "batteryLowAlarm";
     // open window detected channel
     public static final String CHANNEL_ZONE_OPEN_WINDOW_DETECTED = "openWindowDetected";
+    // open window heating/cooling override remaining time channel
+    public static final String CHANNEL_ZONE_OPEN_WINDOW_REMAINING_TIME = "openWindowRemainingTime";
 
     public static final String CHANNEL_MOBILE_DEVICE_AT_HOME = "atHome";
 
     // Configuration
     public static final String CONFIG_ZONE_ID = "id";
     public static final String CONFIG_MOBILE_DEVICE_ID = "id";
+    public static final String CONFIG_USE_RFC8628 = "useRfc8628";
 
     // Properties
     public static final String PROPERTY_ZONE_NAME = "name";
     public static final String PROPERTY_ZONE_TYPE = "type";
 
-    public static enum ZoneType {
+    public enum ZoneType {
         HEATING,
         AIR_CONDITIONING,
         HOT_WATER

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,13 +13,16 @@
 package org.openhab.binding.energidataservice.internal.api;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * Charge type code for DatahubPricelist dataset.
- * See {@link https://www.energidataservice.dk/tso-electricity/DatahubPricelist#metadata-info}}
+ *
  * These codes are defined by the individual grid companies.
  * For example, N1 uses "CD" for "Nettarif C" and "CD R" for "Rabat på nettarif N1 A/S".
  *
+ * @see <a href="https://www.energidataservice.dk/tso-electricity/DatahubPricelist#metadata-info">
+ *      https://www.energidataservice.dk/tso-electricity/DatahubPricelist#metadata-info</a>
  * @author Jacob Laursen - Initial contribution
  */
 @NonNullByDefault
@@ -39,6 +42,16 @@ public class ChargeTypeCode {
     @Override
     public String toString() {
         return code;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        return o == this || (o instanceof ChargeTypeCode other && code.equals(other.code));
+    }
+
+    @Override
+    public int hashCode() {
+        return code.hashCode();
     }
 
     public static ChargeTypeCode of(String code) {

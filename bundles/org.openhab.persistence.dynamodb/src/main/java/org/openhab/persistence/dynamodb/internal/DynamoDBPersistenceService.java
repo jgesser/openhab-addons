@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -85,7 +85,7 @@ import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException;
  *
  * The service creates tables automatically, one for numbers, and one for strings.
  *
- * @see AbstractDynamoDBItem.fromState for details how different items are persisted
+ * @see AbstractDynamoDBItem#fromStateNew for details how different items are persisted
  *
  * @author Sami Salonen - Initial contribution
  * @author Kai Kreuzer - Migration to 3.x
@@ -108,7 +108,7 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
     private final UnitProvider unitProvider;
     private @Nullable DynamoDbEnhancedAsyncClient client;
     private @Nullable DynamoDbAsyncClient lowLevelClient;
-    private static final Logger logger = LoggerFactory.getLogger(DynamoDBPersistenceService.class);
+    private final Logger logger = LoggerFactory.getLogger(DynamoDBPersistenceService.class);
     private boolean isProperlyConfigured;
     private @Nullable DynamoDBConfig dbConfig;
     private @Nullable DynamoDBTableNameResolver tableNameResolver;
@@ -287,9 +287,8 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
         String tableName = localTableNameResolver.fromClass(dtoClass);
         final TableSchema<T> schema = getDynamoDBTableSchema(dtoClass, expectedTableSchemaRevision);
         @SuppressWarnings("unchecked") // OK since this is the only place tableCache is populated
-        DynamoDbAsyncTable<T> table = (DynamoDbAsyncTable<T>) tableCache.computeIfAbsent(dtoClass, clz -> {
-            return localClient.table(tableName, schema);
-        });
+        DynamoDbAsyncTable<T> table = (DynamoDbAsyncTable<T>) tableCache.computeIfAbsent(dtoClass,
+                clz -> localClient.table(tableName, schema));
         if (table == null) {
             // Invariant. To make null checker happy
             throw new IllegalStateException();
@@ -351,6 +350,11 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
 
     @Override
     public Iterable<HistoricItem> query(FilterCriteria filter) {
+        return query(filter, null);
+    }
+
+    @Override
+    public Iterable<HistoricItem> query(FilterCriteria filter, @Nullable String alias) {
         logIfManyQueuedTasks();
         Instant start = Instant.now();
         String filterDescription = filterToString(filter);
@@ -399,8 +403,8 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
                 logger.warn("Could not get item {} from registry! Returning empty query results.", itemName);
                 return Collections.emptyList();
             }
-            if (item instanceof GroupItem) {
-                item = ((GroupItem) item).getBaseItem();
+            if (item instanceof GroupItem groupItem) {
+                item = groupItem.getBaseItem();
                 logger.debug("Item is instanceof GroupItem '{}'", itemName);
                 if (item == null) {
                     logger.debug("BaseItem of GroupItem is null. Ignore and give up!");
@@ -420,17 +424,17 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
                     item.getClass().getSimpleName(), dtoClass.getSimpleName(), tableName);
 
             QueryEnhancedRequest queryExpression = DynamoDBQueryUtils.createQueryExpression(dtoClass,
-                    localTableNameResolver.getTableSchema(), item, filter, unitProvider);
+                    localTableNameResolver.getTableSchema(), item, alias, filter, unitProvider);
 
             CompletableFuture<List<DynamoDBItem<?>>> itemsFuture = new CompletableFuture<>();
             final SdkPublisher<? extends DynamoDBItem<?>> itemPublisher = table.query(queryExpression).items();
-            Subscriber<DynamoDBItem<?>> pageSubscriber = new PageOfInterestSubscriber<DynamoDBItem<?>>(itemsFuture,
+            Subscriber<DynamoDBItem<?>> pageSubscriber = new PageOfInterestSubscriber<>(itemsFuture,
                     filter.getPageNumber(), filter.getPageSize());
             itemPublisher.subscribe(pageSubscriber);
             // NumberItem.getUnit() is expensive, we avoid calling it in the loop
             // by fetching the unit here.
             final Item localItem = item;
-            final Unit<?> itemUnit = localItem instanceof NumberItem ? ((NumberItem) localItem).getUnit() : null;
+            final Unit<?> itemUnit = localItem instanceof NumberItem ni ? ni.getUnit() : null;
             try {
                 @SuppressWarnings("null")
                 List<HistoricItem> results = itemsFuture.get().stream().map(dynamoItem -> {
@@ -567,14 +571,14 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
                 @Override
                 public TableCreatingPutItem<? extends DynamoDBItem<?>> visit(
                         DynamoDBBigDecimalItem dynamoBigDecimalItem) {
-                    return new TableCreatingPutItem<DynamoDBBigDecimalItem>(DynamoDBPersistenceService.this,
-                            dynamoBigDecimalItem, getTable(DynamoDBBigDecimalItem.class));
+                    return new TableCreatingPutItem<>(DynamoDBPersistenceService.this, dynamoBigDecimalItem,
+                            getTable(DynamoDBBigDecimalItem.class));
                 }
 
                 @Override
                 public TableCreatingPutItem<? extends DynamoDBItem<?>> visit(DynamoDBStringItem dynamoStringItem) {
-                    return new TableCreatingPutItem<DynamoDBStringItem>(DynamoDBPersistenceService.this,
-                            dynamoStringItem, getTable(DynamoDBStringItem.class));
+                    return new TableCreatingPutItem<>(DynamoDBPersistenceService.this, dynamoStringItem,
+                            getTable(DynamoDBStringItem.class));
                 }
             }).putItemAsync();
         }, executor).exceptionally(e -> {
@@ -585,15 +589,15 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
 
     private Item getEffectiveItem(Item item) {
         final Item effectiveItem;
-        if (item instanceof GroupItem) {
-            Item baseItem = ((GroupItem) item).getBaseItem();
+        if (item instanceof GroupItem groupItem) {
+            Item baseItem = groupItem.getBaseItem();
             if (baseItem == null) {
                 // if GroupItem:<ItemType> is not defined in
                 // *.items using StringType
                 logger.debug(
                         "Cannot detect ItemType for {} because the GroupItems' base type isn't set in *.items File.",
                         item.getName());
-                Iterator<Item> firstGroupMemberItem = ((GroupItem) item).getMembers().iterator();
+                Iterator<Item> firstGroupMemberItem = groupItem.getMembers().iterator();
                 if (firstGroupMemberItem.hasNext()) {
                     effectiveItem = firstGroupMemberItem.next();
                 } else {
@@ -641,12 +645,13 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
             throw new IllegalArgumentException(item.toString(), e);
         }
         State state = stateOverride == null ? item.getState() : stateOverride;
-        if (state instanceof QuantityType<?> && itemTemplate instanceof NumberItem) {
-            Unit<?> itemUnit = ((NumberItem) itemTemplate).getUnit();
+        if (state instanceof QuantityType<?> type && itemTemplate instanceof NumberItem numberItem) {
+            Unit<?> itemUnit = numberItem.getUnit();
             if (itemUnit != null) {
-                State convertedState = ((QuantityType<?>) state).toUnit(itemUnit);
+                State convertedState = type.toUnit(itemUnit);
                 if (convertedState == null) {
-                    logger.error("Unexpected unit conversion failure: {} to item unit {}", state, itemUnit);
+                    LoggerFactory.getLogger(DynamoDBPersistenceService.class)
+                            .error("Unexpected unit conversion failure: {} to item unit {}", state, itemUnit);
                     throw new IllegalArgumentException(
                             String.format("Unexpected unit conversion failure: %s to item unit %s", state, itemUnit));
                 }
@@ -658,8 +663,7 @@ public class DynamoDBPersistenceService implements QueryablePersistenceService {
     }
 
     private void logIfManyQueuedTasks() {
-        if (executor instanceof ThreadPoolExecutor) {
-            ThreadPoolExecutor localExecutor = (ThreadPoolExecutor) executor;
+        if (executor instanceof ThreadPoolExecutor localExecutor) {
             if (localExecutor.getQueue().size() >= 5) {
                 logger.trace("executor queue size: {}, remaining space {}. Active threads {}",
                         localExecutor.getQueue().size(), localExecutor.getQueue().remainingCapacity(),

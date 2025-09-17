@@ -10,7 +10,7 @@ It contains support for four different types of Lutron systems via different bri
 
 Each is described in a separate section below.
 
-# Lutron RadioRA 2/HomeWorks QS/RA2 Select/Caseta Binding
+## Lutron RadioRA 3/ RadioRA 2/HomeWorks QS/RA2 Select/Caseta Binding
 
 **Note:** While the Lutron Integration Protocol used by ipbridge in this binding should largely be compatible with other current Lutron systems, it has only been fully tested with RadioRA 2, HomeWorks QS, and Caseta with Smart Bridge Pro.
 Homeworks QS support is still a work in progress, since not all features/devices are supported yet.
@@ -23,7 +23,7 @@ The binding has not been tested with Quantum, QS Standalone, myRoom Plus, or Ath
 This binding currently supports the following thing types:
 
 - **ipbridge** - The Lutron main repeater/processor/hub
-- **leapbridge** - Experimental bridge that uses LEAP protocol (Caseta & RA2 Select only)
+- **leapbridge** - Experimental bridge that uses LEAP protocol (Caseta, Radio RA3 & RA2 Select only)
 - **dimmer** - Light dimmer
 - **switch** - Switch or relay module
 - **fan** - Fan controller
@@ -61,7 +61,7 @@ The experimental leapbridge supports full automated discovery of these systems, 
 Other supported Lutron systems must be configured manually.
 
 **Note:** Discovery selects ipbridge for HomeWorks QS, RadioRA 2, RA2 Select, and Caseta Smart Bridge Pro.
-It select leapbridge for Caseta Smart Bridge, since only LEAP protocol is supported by this system.
+It select leapbridge for Caseta Smart Bridge and Radio RA 3, since only LEAP protocol is supported by these systems.
 
 ## Binding Configuration
 
@@ -79,13 +79,14 @@ Two different bridges are now supported by the binding for current Lutron system
 The LIP protocol is supported by ipbridge while the LEAP protocol is supported by leapbridge.
 Current systems support one or both protocols as shown below.
 
-|Bridge Device           | LIP | LEAP |
-|------------------------|-----|------|
-|HomeWorks QS Processor  |  X  |      |
-|RadioRA 2 Main Repeater |  X  |      |
-|RA2 Select Main Repeater|  X  |  X   |
-|Caseta Smart Bridge Pro |  X  |  X   |
-|Caseta Smart Bridge     |     |  X   |
+| Bridge Device            | LIP | LEAP |
+|--------------------------|-----|------|
+| HomeWorks QS Processor   |  X  |      |
+| RadioRA 2 Main Repeater  |  X  |      |
+| RA2 Select Main Repeater |  X  |  X   |
+| Caseta Smart Bridge Pro  |  X  |  X   |
+| Caseta Smart Bridge      |     |  X   |
+| RadioRA 3 Processor      |     |  X   |
 
 If your system supports only one protocol, then the choice of bridge is easy.
 If you have a system that supports both protocols, you must decide which you wish to use.
@@ -140,10 +141,9 @@ Bridge lutron:ipbridge:radiora2 [ ipAddress="192.168.1.2", user="lutron", passwo
 
 #### leapbridge [**experimental**]
 
-The leapbridge is an experimental bridge which allows the binding to work with the Caseta Smart Hub (non-Pro version).
+The leapbridge is an experimental bridge which allows the binding to work with the Caseta Smart Hub (non-Pro version) and the RadioRA 3 Processor.
 It can also be used to provide additional features, such as support for occupancy groups and device discovery, when used with Caseta Smart Hub Pro or RA2 Select.
 It uses the LEAP protocol over SSL, which is an undocumented protocol supported by some of Lutron's newer systems.
-Note that the LEAP protocol will not notify the bridge of keypad key presses.
 If you need this useful feature, you should use ipbridge instead.
 You can use both ipbridge and leapbridge at the same time, but each device should only be configured through one bridge.
 You should also be aware that LEAP and LIP integration IDs for the same device can be different.
@@ -733,7 +733,7 @@ Most channels receive immediate notifications of device state changes from the L
 The only exceptions are **greenmode** _step_, which is periodically polled and accepts REFRESH commands to initiate immediate polling, and **timeclock** _sunrise_ and _sunset_, which must be polled daily using REFRESH commands to retrieve current values.
 Many other channels accept REFRESH commands to initiate a poll, but sending one should not normally be necessary.
 
-## RadioRA 2/HomeWorks QS Configuration File Examples:
+## RadioRA 2/HomeWorks QS Configuration File Examples
 
 demo.things:
 
@@ -785,7 +785,7 @@ then
 end
 ```
 
-# Lutron RadioRA (Classic) Binding
+## Lutron RadioRA (Classic) Binding
 
 This binding integrates with the legacy Lutron RadioRA (Classic) lighting system.
 
@@ -797,7 +797,7 @@ A system is considered “bridged” when a Chronos System Bridge and Timeclock 
 In a bridged system, the `system` parameter of each configured ra-dimmer, ra-switch, or ra-phantomButton thing should be set to indicate which RadioRA system it is a part of (i.e. 1 or 2).
 In a non-bridged system, these parameters should be left at their default of 0.
 
-## Supported Things
+### RadioRA Supported Things
 
 This binding currently supports the following thing types:
 
@@ -808,7 +808,7 @@ This binding currently supports the following thing types:
 | ra-switch        | Thing   | Switch control                                       |
 | ra-phantomButton | Thing   | Phantom Button to control multiple controls (Scenes) |
 
-## Thing Configuration Parameters
+### RadioRA Thing Configuration Parameters
 
 | Thing            | Parameter    | Description                                                            |
 |------------------|--------------|------------------------------------------------------------------------|
@@ -823,7 +823,7 @@ This binding currently supports the following thing types:
 | ra-phantomButton | buttonNumber | Phantom Button Number within the Lutron RadioRA system                 |
 |                  | system       | (Optional) System number (1 or 2) in a bridged system. Default=0 (n/a) |
 
-## Channels
+### RadioRA Channels
 
 The following channels are supported:
 
@@ -832,7 +832,7 @@ The following channels are supported:
 | ra-dimmer                  | lightlevel   | Dimmer    | Increase/Decrease dimmer intensity |
 | ra-switch/ra-phantomButton | switchstatus | Switch    | On/Off state of switch             |
 
-## Example
+### RadioRA Example
 
 lutronradiora.things
 
@@ -856,14 +856,14 @@ Switch Switch_FrontDoor "Front Door Lights" { channel="lutronradiora:switch:chro
 Switch Phantom_Movie "Movie Scene" { channel="lutronradiora:phantomButton:chronos1:phantomButton1:switchstatus" }
 ```
 
-# Legacy HomeWorks RS232 (Serial) Processors
+## Legacy HomeWorks RS232 (Serial) Processors
 
 The binding supports legacy HomeWorks processors that interface with a Serial RS232 connection.
 To connect to such a system, you would need to use a RS232 -> USB adapter (assuming you don't have a serial port).
 
 Please see [HomeWorks RS232 Protocol Guide](https://www.lutron.com/TechnicalDocumentLibrary/HWI%20RS232%20Protocol.pdf) for information on the protocol.
 
-## Supported Things
+### HomeWorks RS232 Supported Things
 
 - HomeWorks RS232-connected Processor Units
 - Dimmers
@@ -873,12 +873,12 @@ Supported in future updates:
 - Keypads
 - Keypad LEDs
 
-## Discovery
+### HomeWorks RS232 Discovery
 
 This binding supports active and passive discovery.
 It will detect dimmers as they are manually raised or lowered, or can be made to scan for configured dimmer modules.
 
-## Thing Configuration
+### HomeWorks RS232 Thing Configuration
 
 The bridge requires the port location (e.g., /dev/ttyUSB1 or COM1) and the baud rate.  The default baud rate for HomeWorks processors is set to 9600.
 
@@ -892,7 +892,7 @@ Dimmers have one required parameter ``address`` that specifies the device addres
 lutron:hwdimmer:dimmer1 [address="[01:01:03:02:04]", fadeTime="1", defaultLevel="75"]
 ```
 
-## Channels
+### HomeWorks RS232 Channels
 
 The following channels are supported:
 
@@ -900,21 +900,21 @@ The following channels are supported:
 |-----------------|-------------------|--------------|--------------------------------------------- |
 | dimmer          | lightlevel        | Dimmer       | Increase/decrease the light level            |
 
-# Lutron Grafik Eye 3x/4x binding via GRX-PRG or GRX-CI-PRG
+## Lutron Grafik Eye 3x/4x binding via GRX-PRG or GRX-CI-PRG
 
 This lutron binding will also work with Grafik Eye 3x/4x systems in conjuction with the GRX-PRG or GRX-CI-PRG interfaces.
 Please see [RS232ProtocolCommandSet](https://www.lutron.com/TechnicalDocumentLibrary/RS232ProtocolCommandSet.040196d.pdf) for more information.
 
-## Supported Things
+### Grafik Eye Supported Things
 
 1-8 Grafik Eye 3x/4x System(s) through the interface
 
-## Discovery
+### Grafik Eye Discovery
 
 This binding does not support discovery of the GRX-PRG or GRX-CI-PRG.
 You will need to specify them directly.
 
-## Thing Configuration
+### Grafik Eye Thing Configuration
 
 The bridge requires the IP address/Host name of the bridge.
 Optionally, you may specify the username (defaults to 'nwk') and retryPolling (in seconds) to retry connections if the connection fails (defaults to 10 seconds).
@@ -933,9 +933,9 @@ should be listed (comma separated list) in the shadeZones.
 lutron:grafikeye:home (lutron:prgbridge:home) [ controlUnit=1, fade=10, polling=30, shadeZones="2,3,4" ]
 ```
 
-## Channels
+### Grafik Eye Channels
 
-### Bridge channels
+#### Grafik Eye Bridge channels
 
 | Channel Type ID | Readonly | Item Type | Description                                                   |
 |-----------------|----------|-----------|---------------------------------------------------------------|
@@ -954,7 +954,7 @@ lutron:grafikeye:home (lutron:prgbridge:home) [ controlUnit=1, fade=10, polling=
 | ssnextsecond    | Yes      | Number    | How many seconds until the next step in the Super Sequence    |
 | buttonpress     | Yes      | String    | Last keypad button pressed (see Appendix A) in protocol guide |
 
-### Grafik Eye channels
+#### Grafik Eye Thing Channels
 
 | Channel Type ID   | Readonly | Item Type     | Description                                                    |
 |-------------------|----------|---------------|--------------------------------------------------------------- |
@@ -968,7 +968,7 @@ lutron:grafikeye:home (lutron:prgbridge:home) [ controlUnit=1, fade=10, polling=
 | zoneintensityX    | No       | Number        | Specifies the zone intensity                                   |
 | zoneshadeX        | No       | Rollershutter | Specifies the shade zone                                       |
 
-### Notes
+#### Grafik Eye Notes
 
 - The "buttonpress" channel reports which keypad button was pressed.  DIP switch 6 must be set on the interface for this to be reported.  The "buttonpress" channel is only useful in rules to take action when a specific button (on a specific keypad) has been pressed.
 - Sunset/sunrise will only be available if configured via the Liasion software
@@ -979,7 +979,7 @@ lutron:grafikeye:home (lutron:prgbridge:home) [ controlUnit=1, fade=10, polling=
 - zoneintensity can be used on a shade zone if the intensity is from 0 to 5 and should be used if wanting to set a QED preset: 0=Stop, 1=Open, 2=Close, 3=Preset 1, 4=Preset 2, 5=Preset 3
 - If you started a zonelower or zoneraise, the only way to stop the action is by executing an all zone stop on the bridge (i.e. zonelowerstop or zoneraisestop).  The PRG API does not provide a way to stop the lowering/raising of any specific zone.
 
-## Example
+### Grafik Eye Example
 
 demo.Things:
 

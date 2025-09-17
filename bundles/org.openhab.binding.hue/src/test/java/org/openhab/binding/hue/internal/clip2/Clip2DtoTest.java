@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -18,42 +18,54 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
-import org.openhab.binding.hue.internal.dto.clip2.ActionEntry;
-import org.openhab.binding.hue.internal.dto.clip2.Alerts;
-import org.openhab.binding.hue.internal.dto.clip2.Button;
-import org.openhab.binding.hue.internal.dto.clip2.Dimming;
-import org.openhab.binding.hue.internal.dto.clip2.Event;
-import org.openhab.binding.hue.internal.dto.clip2.LightLevel;
-import org.openhab.binding.hue.internal.dto.clip2.MetaData;
-import org.openhab.binding.hue.internal.dto.clip2.MirekSchema;
-import org.openhab.binding.hue.internal.dto.clip2.Motion;
-import org.openhab.binding.hue.internal.dto.clip2.Power;
-import org.openhab.binding.hue.internal.dto.clip2.ProductData;
-import org.openhab.binding.hue.internal.dto.clip2.RelativeRotary;
-import org.openhab.binding.hue.internal.dto.clip2.Resource;
-import org.openhab.binding.hue.internal.dto.clip2.ResourceReference;
-import org.openhab.binding.hue.internal.dto.clip2.Resources;
-import org.openhab.binding.hue.internal.dto.clip2.Rotation;
-import org.openhab.binding.hue.internal.dto.clip2.RotationEvent;
-import org.openhab.binding.hue.internal.dto.clip2.Temperature;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ActionType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.Archetype;
-import org.openhab.binding.hue.internal.dto.clip2.enums.BatteryStateType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ButtonEventType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.DirectionType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ResourceType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.RotationEventType;
-import org.openhab.binding.hue.internal.dto.clip2.enums.ZigbeeStatus;
-import org.openhab.binding.hue.internal.dto.clip2.helper.Setters;
+import org.openhab.binding.hue.internal.api.dto.clip2.ActionEntry;
+import org.openhab.binding.hue.internal.api.dto.clip2.Alerts;
+import org.openhab.binding.hue.internal.api.dto.clip2.Button;
+import org.openhab.binding.hue.internal.api.dto.clip2.ContactReport;
+import org.openhab.binding.hue.internal.api.dto.clip2.Dimming;
+import org.openhab.binding.hue.internal.api.dto.clip2.Effects;
+import org.openhab.binding.hue.internal.api.dto.clip2.Event;
+import org.openhab.binding.hue.internal.api.dto.clip2.LightLevel;
+import org.openhab.binding.hue.internal.api.dto.clip2.MetaData;
+import org.openhab.binding.hue.internal.api.dto.clip2.MirekSchema;
+import org.openhab.binding.hue.internal.api.dto.clip2.Motion;
+import org.openhab.binding.hue.internal.api.dto.clip2.Power;
+import org.openhab.binding.hue.internal.api.dto.clip2.ProductData;
+import org.openhab.binding.hue.internal.api.dto.clip2.RelativeRotary;
+import org.openhab.binding.hue.internal.api.dto.clip2.Resource;
+import org.openhab.binding.hue.internal.api.dto.clip2.ResourceReference;
+import org.openhab.binding.hue.internal.api.dto.clip2.Resources;
+import org.openhab.binding.hue.internal.api.dto.clip2.Rotation;
+import org.openhab.binding.hue.internal.api.dto.clip2.RotationEvent;
+import org.openhab.binding.hue.internal.api.dto.clip2.TamperReport;
+import org.openhab.binding.hue.internal.api.dto.clip2.Temperature;
+import org.openhab.binding.hue.internal.api.dto.clip2.TimedEffects;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.ActionType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.Archetype;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.BatteryStateType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.ButtonEventType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.DirectionType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.EffectType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.ResourceType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.RotationEventType;
+import org.openhab.binding.hue.internal.api.dto.clip2.enums.ZigbeeStatus;
+import org.openhab.binding.hue.internal.api.dto.clip2.helper.Setters;
+import org.openhab.binding.hue.internal.api.serialization.InstantDeserializer;
+import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.HSBType;
 import org.openhab.core.library.types.OnOffType;
+import org.openhab.core.library.types.OpenClosedType;
 import org.openhab.core.library.types.PercentType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.types.StringType;
@@ -62,6 +74,7 @@ import org.openhab.core.types.UnDefType;
 import org.openhab.core.util.ColorUtil;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -75,8 +88,29 @@ import com.google.gson.JsonSyntaxException;
 @NonNullByDefault
 class Clip2DtoTest {
 
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = new GsonBuilder().registerTypeAdapter(Instant.class, new InstantDeserializer())
+            .create();
     private static final Double MINIMUM_DIMMING_LEVEL = Double.valueOf(12.34f);
+
+    // Resource types which do not yet have a test JSON payload available
+    public static final Set<ResourceType> RESOURCES_WITH_NO_JSON_TEST_CASE_YET = EnumSet.of(
+    //@formatter:off
+            ResourceType.BELL_BUTTON,
+            ResourceType.CLIP,
+            ResourceType.CONVENIENCE_AREA_MOTION,
+            ResourceType.DEVICE_SOFTWARE_UPDATE,
+            ResourceType.GROUPED_LIGHT_LEVEL,
+            ResourceType.MATTER,
+            ResourceType.MATTER_FABRIC,
+            ResourceType.MOTION_AREA_CANDIDATE,
+            ResourceType.MOTION_AREA_CONFIGURATION,
+            ResourceType.SECURITY_AREA_MOTION,
+            ResourceType.SERVICE_GROUP,
+            ResourceType.SPEAKER,
+            ResourceType.WIFI_CONNECTIVITY,
+            ResourceType.ZIGBEE_DEVICE_DISCOVERY
+    //@formatter:on
+    );
 
     /**
      * Load the test JSON payload string from a file
@@ -99,6 +133,23 @@ class Clip2DtoTest {
     @Test
     void testButton() {
         String json = load(ResourceType.BUTTON.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        assertEquals(ResourceType.BUTTON, item.getType());
+        Button button = item.getButton();
+        assertNotNull(button);
+        assertEquals(new DecimalType(2003),
+                item.getButtonEventState(Map.of("00000000-0000-0000-0000-000000000001", 2)));
+        assertEquals(new DateTimeType("2023-09-17T18:51:36.959+0000"), item.getButtonLastUpdatedState());
+    }
+
+    @Test
+    void testButtonDeprecated() {
+        String json = load(ResourceType.BUTTON.name().toLowerCase() + "_deprecated");
         Resources resources = GSON.fromJson(json, Resources.class);
         assertNotNull(resources);
         List<Resource> list = resources.getResources();
@@ -214,19 +265,19 @@ class Clip2DtoTest {
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getOnOffState());
                 state = item.getBrightnessState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(0, ((PercentType) state).doubleValue(), 0.1);
+                PercentType percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(0, percentState.doubleValue(), 0.1);
                 item.setOnOff(OnOffType.ON);
                 state = item.getBrightnessState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(93.0, ((PercentType) state).doubleValue(), 0.1);
+                percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(93.0, percentState.doubleValue(), 0.1);
                 assertEquals(UnDefType.UNDEF, item.getColorTemperaturePercentState());
                 state = item.getColorState();
-                assertTrue(state instanceof HSBType);
-                double[] xy = ColorUtil.hsbToXY((HSBType) state);
+                HSBType hsbState = assertInstanceOf(HSBType.class, state);
+                double[] xy = ColorUtil.hsbToXY(hsbState);
                 assertEquals(0.6367, xy[0], 0.01); // note: rounding errors !!
                 assertEquals(0.3503, xy[1], 0.01); // note: rounding errors !!
-                assertEquals(item.getBrightnessState(), ((HSBType) state).getBrightness());
+                assertEquals(item.getBrightnessState(), hsbState.getBrightness());
                 Alerts alert = item.getAlerts();
                 assertNotNull(alert);
                 for (ActionType actionValue : alert.getActionValues()) {
@@ -238,12 +289,12 @@ class Clip2DtoTest {
                 assertEquals(ResourceType.LIGHT, item.getType());
                 assertEquals(OnOffType.OFF, item.getOnOffState());
                 state = item.getBrightnessState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(0, ((PercentType) state).doubleValue(), 0.1);
+                PercentType percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(0, percentState.doubleValue(), 0.1);
                 item.setOnOff(OnOffType.ON);
                 state = item.getBrightnessState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(56.7, ((PercentType) state).doubleValue(), 0.1);
+                percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(56.7, percentState.doubleValue(), 0.1);
                 MirekSchema mirekSchema = item.getMirekSchema();
                 assertNotNull(mirekSchema);
                 assertEquals(153, mirekSchema.getMirekMinimum());
@@ -251,42 +302,42 @@ class Clip2DtoTest {
 
                 // test color temperature percent value on light's own scale
                 state = item.getColorTemperaturePercentState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(96.3, ((PercentType) state).doubleValue(), 0.1);
+                percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(96.3, percentState.doubleValue(), 0.1);
                 state = item.getColorTemperatureAbsoluteState();
-                assertTrue(state instanceof QuantityType<?>);
-                assertEquals(2257.3, ((QuantityType<?>) state).doubleValue(), 0.1);
+                QuantityType<?> quantityState = assertInstanceOf(QuantityType.class, state);
+                assertEquals(2257.3, quantityState.doubleValue(), 0.1);
 
                 // test color temperature percent value on the default (full) scale
                 MirekSchema temp = item.getMirekSchema();
                 item.setMirekSchema(MirekSchema.DEFAULT_SCHEMA);
                 state = item.getColorTemperaturePercentState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(83.6, ((PercentType) state).doubleValue(), 0.1);
+                percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(83.6, percentState.doubleValue(), 0.1);
                 state = item.getColorTemperatureAbsoluteState();
-                assertTrue(state instanceof QuantityType<?>);
-                assertEquals(2257.3, ((QuantityType<?>) state).doubleValue(), 0.1);
+                quantityState = assertInstanceOf(QuantityType.class, state);
+                assertEquals(2257.3, quantityState.doubleValue(), 0.1);
                 item.setMirekSchema(temp);
 
                 // change colour temperature percent to zero
                 Setters.setColorTemperaturePercent(item, PercentType.ZERO, null);
                 assertEquals(PercentType.ZERO, item.getColorTemperaturePercentState());
                 state = item.getColorTemperatureAbsoluteState();
-                assertTrue(state instanceof QuantityType<?>);
-                assertEquals(6535.9, ((QuantityType<?>) state).doubleValue(), 0.1);
+                quantityState = assertInstanceOf(QuantityType.class, state);
+                assertEquals(6535.9, quantityState.doubleValue(), 0.1);
 
                 // change colour temperature percent to 100
                 Setters.setColorTemperaturePercent(item, PercentType.HUNDRED, null);
                 assertEquals(PercentType.HUNDRED, item.getColorTemperaturePercentState());
                 state = item.getColorTemperatureAbsoluteState();
-                assertTrue(state instanceof QuantityType<?>);
-                assertEquals(2202.6, ((QuantityType<?>) state).doubleValue(), 0.1);
+                quantityState = assertInstanceOf(QuantityType.class, state);
+                assertEquals(2202.6, quantityState.doubleValue(), 0.1);
 
                 // change colour temperature kelvin to 4000 K
                 Setters.setColorTemperatureAbsolute(item, QuantityType.valueOf("4000 K"), null);
                 state = item.getColorTemperaturePercentState();
-                assertTrue(state instanceof PercentType);
-                assertEquals(32.2, ((PercentType) state).doubleValue(), 0.1);
+                percentState = assertInstanceOf(PercentType.class, state);
+                assertEquals(32.2, percentState.doubleValue(), 0.1);
                 assertEquals(QuantityType.valueOf("4000 K"), item.getColorTemperatureAbsoluteState());
 
                 assertEquals(UnDefType.NULL, item.getColorState());
@@ -313,6 +364,23 @@ class Clip2DtoTest {
         Boolean enabled = item.getEnabled();
         assertNotNull(enabled);
         assertTrue(enabled);
+        assertEquals(QuantityType.valueOf("1.2792921774337476 lx"), item.getLightLevelState());
+        assertEquals(new DateTimeType("2023-09-11T19:20:02.958+0000"), item.getLightLevelLastUpdatedState());
+    }
+
+    @Test
+    void testLightLevelDeprecated() {
+        String json = load(ResourceType.LIGHT_LEVEL.name().toLowerCase() + "_deprecated");
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        assertEquals(ResourceType.LIGHT_LEVEL, item.getType());
+        Boolean enabled = item.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
         LightLevel lightLevel = item.getLightLevel();
         assertNotNull(lightLevel);
         assertEquals(12725, lightLevel.getLightLevel());
@@ -320,8 +388,8 @@ class Clip2DtoTest {
     }
 
     @Test
-    void testRelativeRotary() {
-        String json = load(ResourceType.RELATIVE_ROTARY.name().toLowerCase());
+    void testRelativeRotaryDeprecated() {
+        String json = load(ResourceType.RELATIVE_ROTARY.name().toLowerCase() + "_deprecated");
         Resources resources = GSON.fromJson(json, Resources.class);
         assertNotNull(resources);
         List<Resource> list = resources.getResources();
@@ -359,19 +427,21 @@ class Clip2DtoTest {
         }
         Setters.setColorXy(one, HSBType.RED, null);
         Setters.setDimming(one, PercentType.HUNDRED, null);
-        assertTrue(one.getColorState() instanceof HSBType);
+        HSBType colorState = assertInstanceOf(HSBType.class, one.getColorState());
         assertEquals(PercentType.HUNDRED, one.getBrightnessState());
-        assertTrue(HSBType.RED.closeTo((HSBType) one.getColorState(), 0.01));
+        assertTrue(HSBType.RED.closeTo(colorState, 0.01));
 
         // switching off should change HSB and Brightness
         one.setOnOff(OnOffType.OFF);
-        assertEquals(0, ((HSBType) one.getColorState()).getBrightness().doubleValue(), 0.01);
+        colorState = assertInstanceOf(HSBType.class, one.getColorState());
+        assertEquals(0, colorState.getBrightness().doubleValue(), 0.01);
         assertEquals(PercentType.ZERO, one.getBrightnessState());
         one.setOnOff(OnOffType.ON);
 
         // setting brightness to zero should change it to the minimum dimming level
         Setters.setDimming(one, PercentType.ZERO, null);
-        assertEquals(MINIMUM_DIMMING_LEVEL, ((HSBType) one.getColorState()).getBrightness().doubleValue(), 0.01);
+        colorState = assertInstanceOf(HSBType.class, one.getColorState());
+        assertEquals(MINIMUM_DIMMING_LEVEL, colorState.getBrightness().doubleValue(), 0.01);
         assertEquals(MINIMUM_DIMMING_LEVEL, ((PercentType) one.getBrightnessState()).doubleValue(), 0.01);
         one.setOnOff(OnOffType.ON);
 
@@ -386,9 +456,8 @@ class Clip2DtoTest {
 
         // confirm that brightness is no longer valid, and therefore that color has also changed
         assertEquals(UnDefType.NULL, one.getBrightnessState());
-        assertTrue(one.getColorState() instanceof HSBType);
-        assertTrue((new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50)))
-                .closeTo((HSBType) one.getColorState(), 0.01));
+        colorState = assertInstanceOf(HSBType.class, one.getColorState());
+        assertTrue((new HSBType(DecimalType.ZERO, PercentType.HUNDRED, new PercentType(50))).closeTo(colorState, 0.01));
 
         PercentType testBrightness = new PercentType(42);
 
@@ -406,9 +475,8 @@ class Clip2DtoTest {
         assertEquals("AARDVARK", one.getId());
         assertEquals(ResourceType.LIGHT, one.getType());
         assertEquals(testBrightness, one.getBrightnessState());
-        assertTrue(one.getColorState() instanceof HSBType);
-        assertTrue((new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness))
-                .closeTo((HSBType) one.getColorState(), 0.01));
+        colorState = assertInstanceOf(HSBType.class, one.getColorState());
+        assertTrue((new HSBType(DecimalType.ZERO, PercentType.HUNDRED, testBrightness)).closeTo(colorState, 0.01));
     }
 
     @Test
@@ -455,8 +523,47 @@ class Clip2DtoTest {
     }
 
     @Test
+    void testSmartScene() {
+        String json = load(ResourceType.SMART_SCENE.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        ResourceReference group = item.getGroup();
+        assertNotNull(group);
+        String groupId = group.getId();
+        assertNotNull(groupId);
+        assertFalse(groupId.isBlank());
+        ResourceType type = group.getType();
+        assertNotNull(type);
+        assertEquals(ResourceType.ROOM, type);
+        Boolean state = item.getSmartSceneActive();
+        assertNotNull(state);
+        assertFalse(state);
+    }
+
+    @Test
     void testSensor2Motion() {
         String json = load(ResourceType.MOTION.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        assertEquals(ResourceType.MOTION, item.getType());
+        Boolean enabled = item.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
+        assertEquals(OnOffType.ON, item.getMotionState());
+        assertEquals(new DateTimeType("2023-09-04T20:04:30.395+0000"), item.getMotionLastUpdatedState());
+    }
+
+    @Test
+    void testSensor2MotionDeprecated() {
+        String json = load(ResourceType.MOTION.name().toLowerCase() + "_deprecated");
         Resources resources = GSON.fromJson(json, Resources.class);
         assertNotNull(resources);
         List<Resource> list = resources.getResources();
@@ -485,8 +592,8 @@ class Clip2DtoTest {
         for (HSBType color : Set.of(HSBType.WHITE, HSBType.RED, HSBType.GREEN, HSBType.BLUE, cyan, yellow, magenta)) {
             Setters.setColorXy(resource, color, null);
             State state = resource.getColorState();
-            assertTrue(state instanceof HSBType);
-            assertTrue(color.closeTo((HSBType) state, 0.01));
+            HSBType hsbState = assertInstanceOf(HSBType.class, state);
+            assertTrue(color.closeTo(hsbState, 0.01));
         }
     }
 
@@ -522,9 +629,9 @@ class Clip2DtoTest {
         assertNotNull(active);
         assertTrue(active.isJsonPrimitive());
         assertEquals("inactive", active.getAsString());
-        Optional<Boolean> isActive = resource.getSceneActive();
-        assertTrue(isActive.isPresent());
-        assertEquals(Boolean.FALSE, isActive.get());
+        Boolean isActive = resource.getSceneActive();
+        assertNotNull(isActive);
+        assertEquals(Boolean.FALSE, isActive);
     }
 
     @Test
@@ -537,6 +644,26 @@ class Clip2DtoTest {
         assertEquals(1, list.size());
         Resource item = list.get(0);
         assertEquals(ResourceType.TEMPERATURE, item.getType());
+        Boolean enabled = item.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
+        assertEquals(QuantityType.valueOf("23.34 °C"), item.getTemperatureState());
+        assertEquals(new DateTimeType("2023-09-06T18:22:07.016+0000"), item.getTemperatureLastUpdatedState());
+    }
+
+    @Test
+    void testTemperatureDeprecated() {
+        String json = load(ResourceType.TEMPERATURE.name().toLowerCase() + "_deprecated");
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        assertEquals(ResourceType.TEMPERATURE, item.getType());
+        Boolean enabled = item.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
         Temperature temperature = item.getTemperature();
         assertNotNull(temperature);
         assertEquals(17.2, temperature.getTemperature(), 0.1);
@@ -547,6 +674,9 @@ class Clip2DtoTest {
     void testValidJson() {
         for (ResourceType res : ResourceType.values()) {
             if (!ResourceType.SSE_TYPES.contains(res)) {
+                if (RESOURCES_WITH_NO_JSON_TEST_CASE_YET.contains(res)) {
+                    continue;
+                }
                 try {
                     String file = res.name().toLowerCase();
                     String json = load(file);
@@ -596,5 +726,225 @@ class Clip2DtoTest {
         assertNotNull(service);
         assertEquals("db4fd630-3798-40de-b642-c1ef464bf770", service.getId());
         assertEquals(ResourceType.GROUPED_LIGHT, service.getType());
+    }
+
+    @Test
+    void testSecurityContact() {
+        String json = load(ResourceType.CONTACT.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource resource = list.get(0);
+        assertEquals(ResourceType.CONTACT, resource.getType());
+
+        assertEquals(OpenClosedType.CLOSED, resource.getContactState());
+        assertEquals(new DateTimeType("2023-10-10T19:10:55.919Z"), resource.getContactLastUpdatedState());
+
+        resource.setContactReport(new ContactReport().setLastChanged(Instant.now()).setContactState("no_contact"));
+        assertEquals(OpenClosedType.OPEN, resource.getContactState());
+        assertInstanceOf(DateTimeType.class, resource.getContactLastUpdatedState());
+    }
+
+    @Test
+    void testSecurityTamper() {
+        String json = load(ResourceType.TAMPER.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource resource = list.get(0);
+        assertEquals(ResourceType.TAMPER, resource.getType());
+
+        assertEquals(OpenClosedType.CLOSED, resource.getTamperState());
+        assertEquals(new DateTimeType("2023-01-01T00:00:00.001Z"), resource.getTamperLastUpdatedState());
+
+        Instant start = Instant.now();
+        List<TamperReport> tamperReports;
+        State state;
+
+        tamperReports = new ArrayList<>();
+        tamperReports.add(new TamperReport().setTamperState("not_tampered").setLastChanged(start));
+        resource.setTamperReports(tamperReports);
+        assertEquals(OpenClosedType.CLOSED, resource.getTamperState());
+        state = resource.getTamperLastUpdatedState();
+        DateTimeType dateTimeState = assertInstanceOf(DateTimeType.class, state);
+        assertEquals(start, dateTimeState.getInstant());
+
+        tamperReports = new ArrayList<>();
+        tamperReports.add(new TamperReport().setTamperState("not_tampered").setLastChanged(start));
+        tamperReports.add(new TamperReport().setTamperState("tampered").setLastChanged(start.plusSeconds(1)));
+        resource.setTamperReports(tamperReports);
+        assertEquals(OpenClosedType.OPEN, resource.getTamperState());
+        state = resource.getTamperLastUpdatedState();
+        dateTimeState = assertInstanceOf(DateTimeType.class, state);
+        assertEquals(start.plusSeconds(1), dateTimeState.getInstant());
+
+        tamperReports = new ArrayList<>();
+        tamperReports.add(new TamperReport().setTamperState("not_tampered").setLastChanged(start));
+        tamperReports.add(new TamperReport().setTamperState("tampered").setLastChanged(start.plusSeconds(1)));
+        tamperReports.add(new TamperReport().setTamperState("not_tampered").setLastChanged(start.plusSeconds(2)));
+        resource.setTamperReports(tamperReports);
+        assertEquals(OpenClosedType.CLOSED, resource.getTamperState());
+        state = resource.getTamperLastUpdatedState();
+        dateTimeState = assertInstanceOf(DateTimeType.class, state);
+        assertEquals(start.plusSeconds(2), dateTimeState.getInstant());
+    }
+
+    @Test
+    void testCameraMotion() {
+        String json = load(ResourceType.CAMERA_MOTION.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource resource = list.get(0);
+        assertEquals(ResourceType.CAMERA_MOTION, resource.getType());
+
+        Boolean enabled = resource.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
+        assertEquals(OnOffType.ON, resource.getMotionState());
+        assertEquals(new DateTimeType("2020-04-01T20:04:30.395Z"), resource.getMotionLastUpdatedState());
+    }
+
+    void testFixedEffectSetter() {
+        Resource source;
+        Resource target;
+        Effects resultEffect;
+
+        // no source effects
+        source = new Resource(ResourceType.LIGHT);
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        assertNull(target.getFixedEffects());
+
+        // valid source fixed effects
+        source = new Resource(ResourceType.LIGHT).setFixedEffects(
+                new Effects().setStatusValues(List.of("NO_EFFECT", "SPARKLE", "CANDLE")).setEffect(EffectType.SPARKLE));
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        resultEffect = target.getFixedEffects();
+        assertNotNull(resultEffect);
+        assertEquals(EffectType.SPARKLE, resultEffect.getEffect());
+        assertEquals(3, resultEffect.getStatusValues().size());
+
+        // valid but different source and target fixed effects
+        source = new Resource(ResourceType.LIGHT).setFixedEffects(
+                new Effects().setStatusValues(List.of("NO_EFFECT", "SPARKLE", "CANDLE")).setEffect(EffectType.SPARKLE));
+        target = new Resource(ResourceType.LIGHT).setFixedEffects(
+                new Effects().setStatusValues(List.of("NO_EFFECT", "FIRE")).setEffect(EffectType.FIRE));
+        Setters.setResource(target, source);
+        resultEffect = target.getFixedEffects();
+        assertNotNull(resultEffect);
+        assertNotEquals(EffectType.SPARKLE, resultEffect.getEffect());
+        assertEquals(3, resultEffect.getStatusValues().size());
+
+        // partly valid source fixed effects
+        source = new Resource(ResourceType.LIGHT).setFixedEffects(new Effects().setStatusValues(List.of("SPARKLE"))
+                .setEffect(EffectType.SPARKLE).setStatusValues(List.of()));
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        resultEffect = target.getFixedEffects();
+        assertNotNull(resultEffect);
+        assertEquals(EffectType.SPARKLE, resultEffect.getEffect());
+        assertEquals(0, resultEffect.getStatusValues().size());
+        assertFalse(resultEffect.allows(EffectType.SPARKLE));
+        assertFalse(resultEffect.allows(EffectType.NO_EFFECT));
+    }
+
+    @Test
+    void testTimedEffectSetter() {
+        Resource source;
+        Resource target;
+        Effects resultEffect;
+
+        // no source effects
+        source = new Resource(ResourceType.LIGHT);
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        assertNull(target.getTimedEffects());
+
+        // valid source timed effects
+        source = new Resource(ResourceType.LIGHT).setTimedEffects((TimedEffects) new TimedEffects()
+                .setStatusValues(List.of("NO_EFFECT", "SUNRISE")).setEffect(EffectType.NO_EFFECT));
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        resultEffect = target.getTimedEffects();
+        assertNotNull(resultEffect);
+        assertEquals(EffectType.NO_EFFECT, resultEffect.getEffect());
+        assertEquals(2, resultEffect.getStatusValues().size());
+
+        // valid but different source and target timed effects
+        source = new Resource(ResourceType.LIGHT)
+                .setTimedEffects((TimedEffects) new TimedEffects().setDuration(Duration.ofMinutes(11))
+                        .setStatusValues(List.of("NO_EFFECT", "SPARKLE", "CANDLE")).setEffect(EffectType.SPARKLE));
+        target = new Resource(ResourceType.LIGHT).setTimedEffects((TimedEffects) new TimedEffects()
+                .setStatusValues(List.of("NO_EFFECT", "FIRE")).setEffect(EffectType.FIRE));
+        Setters.setResource(target, source);
+        resultEffect = target.getTimedEffects();
+        assertNotNull(resultEffect);
+        assertNotEquals(EffectType.SPARKLE, resultEffect.getEffect());
+        assertEquals(3, resultEffect.getStatusValues().size());
+        TimedEffects resultTimedEffects = assertInstanceOf(TimedEffects.class, resultEffect);
+        assertEquals(Duration.ofMinutes(11), resultTimedEffects.getDuration());
+
+        // partly valid source timed effects
+        source = new Resource(ResourceType.LIGHT).setTimedEffects((TimedEffects) new TimedEffects()
+                .setStatusValues(List.of("SUNRISE")).setEffect(EffectType.SUNRISE).setStatusValues(List.of()));
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        resultEffect = target.getTimedEffects();
+        assertNotNull(resultEffect);
+        assertEquals(EffectType.SUNRISE, resultEffect.getEffect());
+        assertEquals(0, resultEffect.getStatusValues().size());
+        assertFalse(resultEffect.allows(EffectType.SPARKLE));
+        assertFalse(resultEffect.allows(EffectType.NO_EFFECT));
+        resultTimedEffects = assertInstanceOf(TimedEffects.class, resultEffect);
+        assertNull(resultTimedEffects.getDuration());
+
+        target.setTimedEffectsDuration(Duration.ofSeconds(22));
+        assertEquals(Duration.ofSeconds(22), ((TimedEffects) resultEffect).getDuration());
+
+        // source timed effect with duration
+        source = new Resource(ResourceType.LIGHT)
+                .setTimedEffects((TimedEffects) new TimedEffects().setDuration(Duration.ofMillis(44))
+                        .setStatusValues(List.of("SUNRISE")).setEffect(EffectType.SUNRISE).setStatusValues(List.of()));
+        target = new Resource(ResourceType.LIGHT);
+        Setters.setResource(target, source);
+        resultEffect = target.getTimedEffects();
+        assertNotNull(resultEffect);
+        resultTimedEffects = assertInstanceOf(TimedEffects.class, resultEffect);
+        assertEquals(Duration.ofMillis(44), resultTimedEffects.getDuration());
+    }
+
+    @Test
+    void testBehaviorInstance() {
+        String json = load(ResourceType.BEHAVIOR_INSTANCE.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(2, list.size());
+    }
+
+    @Test
+    void testGroupedMotion() {
+        String json = load(ResourceType.GROUPED_MOTION.name().toLowerCase());
+        Resources resources = GSON.fromJson(json, Resources.class);
+        assertNotNull(resources);
+        List<Resource> list = resources.getResources();
+        assertNotNull(list);
+        assertEquals(1, list.size());
+        Resource item = list.get(0);
+        assertEquals(ResourceType.GROUPED_MOTION, item.getType());
+        Boolean enabled = item.getEnabled();
+        assertNotNull(enabled);
+        assertTrue(enabled);
+        assertEquals(OnOffType.ON, item.getMotionState());
+        assertEquals(new DateTimeType("2024-12-13T11:01:25.156Z"), item.getMotionLastUpdatedState());
     }
 }

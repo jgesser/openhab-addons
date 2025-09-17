@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,8 +26,6 @@ import java.nio.BufferOverflowException;
 import java.nio.channels.IllegalBlockingModeException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -187,8 +185,8 @@ public class BigAssFanHandler extends BaseThingHandler {
         logger.debug("Handling fan speed command for {}: {}", thing.getUID(), command);
 
         // <mac;FAN;SPD;SET;0..7>
-        if (command instanceof PercentType) {
-            sendCommand(macAddress, ";FAN;SPD;SET;".concat(BigAssFanConverter.percentToSpeed((PercentType) command)));
+        if (command instanceof PercentType percentCommand) {
+            sendCommand(macAddress, ";FAN;SPD;SET;".concat(BigAssFanConverter.percentToSpeed(percentCommand)));
         }
     }
 
@@ -238,52 +236,48 @@ public class BigAssFanHandler extends BaseThingHandler {
     private void handleFanLearnSpeedMin(Command command) {
         logger.debug("Handling fan learn speed minimum command {}", command);
         // <mac;FAN;SPD;SET;MIN;0..7>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send min speed set command
-            sendCommand(macAddress,
-                    ";LEARN;MINSPEED;SET;".concat(BigAssFanConverter.percentToSpeed((PercentType) command)));
-            fanStateMap.put(CHANNEL_FAN_LEARN_MINSPEED, (PercentType) command);
+            sendCommand(macAddress, ";LEARN;MINSPEED;SET;".concat(BigAssFanConverter.percentToSpeed(percentCommand)));
+            fanStateMap.put(CHANNEL_FAN_LEARN_MINSPEED, percentCommand);
             // Don't let max be less than min
-            adjustMaxSpeed((PercentType) command, CHANNEL_FAN_LEARN_MAXSPEED, ";LEARN;MAXSPEED;");
+            adjustMaxSpeed(percentCommand, CHANNEL_FAN_LEARN_MAXSPEED, ";LEARN;MAXSPEED;");
         }
     }
 
     private void handleFanLearnSpeedMax(Command command) {
         logger.debug("Handling fan learn speed maximum command {}", command);
         // <mac;FAN;SPD;SET;MAX;0..7>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send max speed set command
-            sendCommand(macAddress,
-                    ";LEARN;MAXSPEED;SET;;".concat(BigAssFanConverter.percentToSpeed((PercentType) command)));
-            fanStateMap.put(CHANNEL_FAN_LEARN_MAXSPEED, (PercentType) command);
+            sendCommand(macAddress, ";LEARN;MAXSPEED;SET;;".concat(BigAssFanConverter.percentToSpeed(percentCommand)));
+            fanStateMap.put(CHANNEL_FAN_LEARN_MAXSPEED, percentCommand);
             // Don't let min be greater than max
-            adjustMinSpeed((PercentType) command, CHANNEL_FAN_LEARN_MINSPEED, ";LEARN;MINSPEED;");
+            adjustMinSpeed(percentCommand, CHANNEL_FAN_LEARN_MINSPEED, ";LEARN;MINSPEED;");
         }
     }
 
     private void handleFanSpeedMin(Command command) {
         logger.debug("Handling fan speed minimum command {}", command);
         // <mac;FAN;SPD;SET;MIN;0..7>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send min speed set command
-            sendCommand(macAddress,
-                    ";FAN;SPD;SET;MIN;".concat(BigAssFanConverter.percentToSpeed((PercentType) command)));
-            fanStateMap.put(CHANNEL_FAN_SPEED_MIN, (PercentType) command);
+            sendCommand(macAddress, ";FAN;SPD;SET;MIN;".concat(BigAssFanConverter.percentToSpeed(percentCommand)));
+            fanStateMap.put(CHANNEL_FAN_SPEED_MIN, percentCommand);
             // Don't let max be less than min
-            adjustMaxSpeed((PercentType) command, CHANNEL_FAN_SPEED_MAX, ";FAN;SPD;SET;MAX;");
+            adjustMaxSpeed(percentCommand, CHANNEL_FAN_SPEED_MAX, ";FAN;SPD;SET;MAX;");
         }
     }
 
     private void handleFanSpeedMax(Command command) {
         logger.debug("Handling fan speed maximum command {}", command);
         // <mac;FAN;SPD;SET;MAX;0..7>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send max speed set command
-            sendCommand(macAddress,
-                    ";FAN;SPD;SET;MAX;".concat(BigAssFanConverter.percentToSpeed((PercentType) command)));
-            fanStateMap.put(CHANNEL_FAN_SPEED_MAX, (PercentType) command);
+            sendCommand(macAddress, ";FAN;SPD;SET;MAX;".concat(BigAssFanConverter.percentToSpeed(percentCommand)));
+            fanStateMap.put(CHANNEL_FAN_SPEED_MAX, percentCommand);
             // Don't let min be greater than max
-            adjustMinSpeed((PercentType) command, CHANNEL_FAN_SPEED_MIN, ";FAN;SPD;SET;MIN;");
+            adjustMinSpeed(percentCommand, CHANNEL_FAN_SPEED_MIN, ";FAN;SPD;SET;MIN;");
         }
     }
 
@@ -364,9 +358,8 @@ public class BigAssFanHandler extends BaseThingHandler {
 
         logger.debug("Handling light level command {}", command);
         // <mac;LIGHT;LEVEL;SET;0..16>
-        if (command instanceof PercentType) {
-            sendCommand(macAddress,
-                    ";LIGHT;LEVEL;SET;".concat(BigAssFanConverter.percentToLevel((PercentType) command)));
+        if (command instanceof PercentType percentCommand) {
+            sendCommand(macAddress, ";LIGHT;LEVEL;SET;".concat(BigAssFanConverter.percentToLevel(percentCommand)));
         }
     }
 
@@ -378,9 +371,9 @@ public class BigAssFanHandler extends BaseThingHandler {
 
         logger.debug("Handling light hue command {}", command);
         // <mac;LIGHT;COLOR;TEMP;SET;2200..5000>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             sendCommand(macAddress,
-                    ";LIGHT;COLOR;TEMP;VALUE;SET;".concat(BigAssFanConverter.percentToHue((PercentType) command)));
+                    ";LIGHT;COLOR;TEMP;VALUE;SET;".concat(BigAssFanConverter.percentToHue(percentCommand)));
         }
     }
 
@@ -426,12 +419,11 @@ public class BigAssFanHandler extends BaseThingHandler {
 
         logger.debug("Handling light level minimum command {}", command);
         // <mac;LIGHT;LEVEL;MIN;0-16>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send min light level set command
-            sendCommand(macAddress,
-                    ";LIGHT;LEVEL;MIN;".concat(BigAssFanConverter.percentToLevel((PercentType) command)));
+            sendCommand(macAddress, ";LIGHT;LEVEL;MIN;".concat(BigAssFanConverter.percentToLevel(percentCommand)));
             // Don't let max be less than min
-            adjustMaxLevel((PercentType) command);
+            adjustMaxLevel(percentCommand);
         }
     }
 
@@ -443,12 +435,11 @@ public class BigAssFanHandler extends BaseThingHandler {
 
         logger.debug("Handling light level maximum command {}", command);
         // <mac;LIGHT;LEVEL;MAX;0-16>
-        if (command instanceof PercentType) {
+        if (command instanceof PercentType percentCommand) {
             // Send max light level set command
-            sendCommand(macAddress,
-                    ";LIGHT;LEVEL;MAX;".concat(BigAssFanConverter.percentToLevel((PercentType) command)));
+            sendCommand(macAddress, ";LIGHT;LEVEL;MAX;".concat(BigAssFanConverter.percentToLevel(percentCommand)));
             // Don't let min be greater than max
-            adjustMinLevel((PercentType) command);
+            adjustMinLevel(percentCommand);
         }
     }
 
@@ -755,7 +746,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process fan power update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_FAN_POWER, state);
             fanStateMap.put(CHANNEL_FAN_POWER, state);
         }
@@ -788,7 +779,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process fan auto update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_FAN_AUTO, state);
             fanStateMap.put(CHANNEL_FAN_AUTO, state);
         }
@@ -799,7 +790,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process fan whoosh update for {}: {}", thing.getUID(), messageParts[4]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[4]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[4]));
             updateChannel(CHANNEL_FAN_WHOOSH, state);
             fanStateMap.put(CHANNEL_FAN_WHOOSH, state);
         }
@@ -810,7 +801,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process fan wintermode update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_FAN_WINTERMODE, state);
             fanStateMap.put(CHANNEL_FAN_WINTERMODE, state);
         }
@@ -854,7 +845,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process fan sleep mode for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_FAN_SLEEP, state);
             fanStateMap.put(CHANNEL_FAN_SLEEP, state);
         }
@@ -887,7 +878,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process light power update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_LIGHT_POWER, state);
             fanStateMap.put(CHANNEL_LIGHT_POWER, state);
         }
@@ -921,7 +912,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process light auto update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "ON".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("ON".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_LIGHT_AUTO, state);
             fanStateMap.put(CHANNEL_LIGHT_AUTO, state);
         }
@@ -971,7 +962,7 @@ public class BigAssFanHandler extends BaseThingHandler {
                 return;
             }
             logger.debug("Process motion sensor update for {}: {}", thing.getUID(), messageParts[3]);
-            OnOffType state = "OCCUPIED".equalsIgnoreCase(messageParts[3]) ? OnOffType.ON : OnOffType.OFF;
+            OnOffType state = OnOffType.from("OCCUPIED".equalsIgnoreCase(messageParts[3]));
             updateChannel(CHANNEL_MOTION, state);
             fanStateMap.put(CHANNEL_MOTION, state);
         }
@@ -985,7 +976,7 @@ public class BigAssFanHandler extends BaseThingHandler {
             // (mac|name;TIME;VALUE;2017-03-26T14:06:27Z)
             try {
                 Instant instant = Instant.parse(messageParts[3]);
-                DateTimeType state = new DateTimeType(ZonedDateTime.ofInstant(instant, ZoneId.systemDefault()));
+                DateTimeType state = new DateTimeType(instant);
                 updateChannel(CHANNEL_TIME, state);
                 fanStateMap.put(CHANNEL_TIME, state);
             } catch (DateTimeParseException e) {

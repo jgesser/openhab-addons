@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -26,7 +26,7 @@ import java.util.function.Supplier;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.fineoffsetweatherstation.internal.Utils;
-import org.openhab.binding.fineoffsetweatherstation.internal.domain.ConversionContext;
+import org.openhab.binding.fineoffsetweatherstation.internal.domain.DebugDetails;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.Measurand;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.Protocol;
 import org.openhab.binding.fineoffsetweatherstation.internal.domain.SensorGatewayBinding;
@@ -151,7 +151,7 @@ public class FineOffsetDataParser {
         return new SystemInfo(frequency, date, dst, useWh24);
     }
 
-    List<MeasuredValue> getMeasuredValues(byte[] data, ConversionContext context) {
+    List<MeasuredValue> getMeasuredValues(byte[] data, DebugDetails debugDetails) {
         /*
          * Pos| Length | Description
          * -------------------------------------------------
@@ -173,26 +173,31 @@ public class FineOffsetDataParser {
         var idx = 5;
         if (protocol == Protocol.ELV) {
             idx++; // at index 5 there is an additional Byte being set to 0x04
+            debugDetails.addDebugDetails(5, 1, "ELV extra byte");
         }
-        return readMeasuredValues(data, idx, context, protocol.getParserCustomizationType());
+        return readMeasuredValues(data, idx, protocol.getParserCustomizationType(), debugDetails);
     }
 
-    List<MeasuredValue> getRainData(byte[] data, ConversionContext context) {
-        return readMeasuredValues(data, 5, context, Measurand.ParserCustomizationType.RAIN_READING);
+    List<MeasuredValue> getRainData(byte[] data, DebugDetails debugDetails) {
+        return readMeasuredValues(data, 5, Measurand.ParserCustomizationType.RAIN_READING, debugDetails);
     }
 
-    private List<MeasuredValue> readMeasuredValues(byte[] data, int idx, ConversionContext context,
-            Measurand.@Nullable ParserCustomizationType protocol) {
+    private List<MeasuredValue> readMeasuredValues(byte[] data, int idx,
+            Measurand.@Nullable ParserCustomizationType protocol, DebugDetails debugDetails) {
         var size = toUInt16(data, 3);
+
         List<MeasuredValue> result = new ArrayList<>();
         while (idx < size) {
             byte code = data[idx++];
             Measurand.SingleChannelMeasurand measurand = Measurand.getByCode(code);
             if (measurand == null) {
                 logger.warn("failed to get measurand 0x{}", Integer.toHexString(code));
+                debugDetails.addDebugDetails(idx - 1, 1, "unknown measurand");
                 return result;
+            } else {
+                debugDetails.addDebugDetails(idx - 1, 1, "measurand " + measurand.getDebugString());
             }
-            idx += measurand.extractMeasuredValues(data, idx, context, protocol, result);
+            idx += measurand.extractMeasuredValues(data, idx, protocol, result, debugDetails);
         }
         return result;
     }

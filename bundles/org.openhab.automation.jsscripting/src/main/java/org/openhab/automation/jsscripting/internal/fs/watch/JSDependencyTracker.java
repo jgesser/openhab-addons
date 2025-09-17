@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,9 +12,8 @@
  */
 package org.openhab.automation.jsscripting.internal.fs.watch;
 
-import java.io.File;
-
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.openhab.automation.jsscripting.internal.GraalJSScriptEngineFactory;
 import org.openhab.core.automation.module.script.ScriptDependencyTracker;
 import org.openhab.core.automation.module.script.rulesupport.loader.AbstractScriptDependencyTracker;
 import org.openhab.core.service.WatchService;
@@ -35,23 +34,24 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 @NonNullByDefault
 public class JSDependencyTracker extends AbstractScriptDependencyTracker {
 
-    private static final String LIB_PATH = String.join(File.separator, "automation", "js", "node_modules");
-
     @Activate
     public JSDependencyTracker(@Reference(target = WatchService.CONFIG_WATCHER_FILTER) WatchService watchService) {
-        super(watchService, LIB_PATH);
+        super(watchService, GraalJSScriptEngineFactory.JS_LIB_PATH.toString());
     }
 
     @Deactivate
+    @Override
     public void deactivate() {
         super.deactivate();
     }
 
+    @Override
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "removeChangeTracker")
     public void addChangeTracker(ScriptDependencyTracker.Listener listener) {
         super.addChangeTracker(listener);
     }
 
+    @Override
     public void removeChangeTracker(ScriptDependencyTracker.Listener listener) {
         super.removeChangeTracker(listener);
     }

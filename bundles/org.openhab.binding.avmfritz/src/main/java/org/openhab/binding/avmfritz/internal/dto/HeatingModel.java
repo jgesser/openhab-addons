@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -92,8 +92,15 @@ public class HeatingModel implements BatteryModel {
         this.absenk = absenk;
     }
 
+    /**
+     * Helper to check if the value is equal to 1 regardless of the BigDecimal scale.
+     */
+    private static boolean isOne(@Nullable BigDecimal value) {
+        return (value != null) && (BigDecimal.ONE.compareTo(value) == 0);
+    }
+
     public String getMode() {
-        if (BigDecimal.ONE.equals(getHolidayactive())) {
+        if (isOne(getHolidayactive())) {
             return MODE_VACATION;
         } else if (getNextchange() != null && getNextchange().getEndperiod() != 0) {
             return MODE_AUTO;
@@ -103,20 +110,20 @@ public class HeatingModel implements BatteryModel {
     }
 
     public String getRadiatorMode() {
-        if (tsoll == null) {
+        if (isOne(getWindowopenactiv())) {
+            return MODE_WINDOW_OPEN;
+        } else if (isOne(getBoostactive()) || (tsoll != null && TEMP_FRITZ_MAX.compareTo(tsoll) == 0)) {
+            return MODE_BOOST;
+        } else if (tsoll == null) {
             return MODE_UNKNOWN;
         } else if (TEMP_FRITZ_ON.compareTo(tsoll) == 0) {
             return MODE_ON;
         } else if (TEMP_FRITZ_OFF.compareTo(tsoll) == 0) {
             return MODE_OFF;
-        } else if (BigDecimal.ONE.equals(getWindowopenactiv())) {
-            return MODE_WINDOW_OPEN;
         } else if (komfort != null && komfort.compareTo(tsoll) == 0) {
             return MODE_COMFORT;
         } else if (absenk != null && absenk.compareTo(tsoll) == 0) {
             return MODE_ECO;
-        } else if (BigDecimal.ONE.equals(getBoostactive()) || TEMP_FRITZ_MAX.compareTo(tsoll) == 0) {
-            return MODE_BOOST;
         } else {
             return MODE_ON;
         }
@@ -171,6 +178,10 @@ public class HeatingModel implements BatteryModel {
         return boostactive;
     }
 
+    public void setBoostactive(BigDecimal boostActive) {
+        this.boostactive = boostActive;
+    }
+
     public @Nullable BigDecimal getBoostactiveendtime() {
         return boostactiveendtime;
     }
@@ -222,8 +233,8 @@ public class HeatingModel implements BatteryModel {
 
     /**
      * Converts a celsius value to a FRITZ!Box value.
-     * Valid celsius values: 8 to 28 °C > 16 to 56
-     * 16 <= 8°C, 17 = 8.5°C...... 56 >= 28°C, 254 = ON, 253 = OFF
+     * Valid celsius values: 8 to 28 °C > 16 to 56,
+     * 16 &lt;= 8°C, 17 = 8.5°C...... 56 >= 28°C, 254 = ON, 253 = OFF
      *
      * @param celsiusValue The celsius value to be converted
      * @return The FRITZ!Box value

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -27,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 import javax.measure.Unit;
 
@@ -236,17 +237,20 @@ public class ShellyUtils {
     }
 
     public static Double getNumber(Command command) throws IllegalArgumentException {
-        if (command instanceof DecimalType) {
-            return ((DecimalType) command).doubleValue();
+        if (command instanceof QuantityType<?> quantityCommand) {
+            return quantityCommand.doubleValue();
         }
-        if (command instanceof QuantityType) {
-            return ((QuantityType<?>) command).doubleValue();
+        if (command instanceof DecimalType decimalCommand) {
+            return decimalCommand.doubleValue();
         }
-        throw new IllegalArgumentException("Unable to convert number");
+        if (command instanceof Number numberCommand) {
+            return numberCommand.doubleValue();
+        }
+        throw new IllegalArgumentException("Invalid Number type for conversion: " + command);
     }
 
     public static OnOffType getOnOff(@Nullable Boolean value) {
-        return (value != null && value ? OnOffType.ON : OnOffType.OFF);
+        return OnOffType.from(value != null && value);
     }
 
     public static OpenClosedType getOpenClosed(@Nullable Boolean value) {
@@ -254,7 +258,7 @@ public class ShellyUtils {
     }
 
     public static OnOffType getOnOff(int value) {
-        return value == 0 ? OnOffType.OFF : OnOffType.ON;
+        return OnOffType.from(value != 0);
     }
 
     public static State toQuantityType(@Nullable Double value, int digits, Unit<?> unit) {
@@ -287,12 +291,12 @@ public class ShellyUtils {
         }
     }
 
-    public static Long now() {
-        return System.currentTimeMillis() / 1000L;
+    public static double now() {
+        return System.currentTimeMillis() / 1000.0;
     }
 
     public static DateTimeType getTimestamp() {
-        return new DateTimeType(ZonedDateTime.ofInstant(Instant.ofEpochSecond(now()), ZoneId.systemDefault()));
+        return new DateTimeType(ZonedDateTime.now().truncatedTo(ChronoUnit.SECONDS));
     }
 
     public static DateTimeType getTimestamp(String zone, long timestamp) {
@@ -300,15 +304,11 @@ public class ShellyUtils {
             ZoneId zoneId = !zone.isEmpty() ? ZoneId.of(zone) : ZoneId.systemDefault();
             ZonedDateTime zdt = LocalDateTime.now().atZone(zoneId);
             int delta = zdt.getOffset().getTotalSeconds();
-            return new DateTimeType(ZonedDateTime.ofInstant(Instant.ofEpochSecond(timestamp - delta), zoneId));
+            return new DateTimeType(Instant.ofEpochSecond(timestamp - delta));
         } catch (DateTimeException e) {
             // Unable to convert device's timezone, use system one
             return getTimestamp();
         }
-    }
-
-    public static String getTimestamp(DateTimeType dt) {
-        return dt.getZonedDateTime().toString().replace('T', ' ').replace('-', '/');
     }
 
     public static String convertTimestamp(long ts) {

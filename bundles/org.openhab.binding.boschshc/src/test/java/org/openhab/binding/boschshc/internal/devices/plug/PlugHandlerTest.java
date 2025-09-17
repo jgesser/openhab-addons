@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,9 @@
 package org.openhab.binding.boschshc.internal.devices.plug;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.openhab.binding.boschshc.internal.devices.AbstractPowerSwitchHandlerTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.openhab.binding.boschshc.internal.devices.AbstractPowerSwitchHandlerWithPowerMeterTest;
 import org.openhab.binding.boschshc.internal.devices.BoschSHCBindingConstants;
 import org.openhab.core.thing.ThingTypeUID;
 
@@ -24,7 +26,8 @@ import org.openhab.core.thing.ThingTypeUID;
  *
  */
 @NonNullByDefault
-public class PlugHandlerTest extends AbstractPowerSwitchHandlerTest<PlugHandler> {
+@ExtendWith(MockitoExtension.class)
+class PlugHandlerTest extends AbstractPowerSwitchHandlerWithPowerMeterTest<PlugHandler> {
 
     @Override
     protected PlugHandler createFixture() {

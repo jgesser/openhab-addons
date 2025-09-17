@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,6 +15,7 @@ package org.openhab.binding.semsportal.internal;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import javax.ws.rs.core.MediaType;
 
@@ -49,8 +50,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 /**
- * The {@link PortalHandler} is responsible for handling commands, which are
- * sent to one of the channels.
+ * The {@link PortalHandler} is responsible for handling commands, which are sent to one of the channels.
  *
  * @author Iwan Bron - Initial contribution
  */
@@ -68,6 +68,7 @@ public class PortalHandler extends BaseBridgeHandler {
     private static final String LIST_URL = BASE_URL + "api/PowerStationMonitor/QueryPowerStationMonitorForApp";
     // the token holds the credential information for the portal
     private static final String HTTP_HEADER_TOKEN = "Token";
+    private static final int REQUEST_TIMEOUT_MS = 10_000;
 
     // used to parse json from / to the SEMS portal API
     private final Gson gson;
@@ -131,7 +132,8 @@ public class PortalHandler extends BaseBridgeHandler {
 
     private @Nullable String sendPost(String url, String payload) {
         try {
-            Request request = httpClient.POST(url).header(HttpHeader.CONTENT_TYPE, MediaType.APPLICATION_JSON)
+            Request request = httpClient.POST(url).timeout(REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    .header(HttpHeader.CONTENT_TYPE, MediaType.APPLICATION_JSON)
                     .header(HTTP_HEADER_TOKEN, gson.toJson(sessionToken))
                     .content(new StringContentProvider(payload, StandardCharsets.UTF_8.name()),
                             MediaType.APPLICATION_JSON);

@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -58,8 +58,7 @@ public class WeatherApi extends RestManager {
             throws NetatmoException {
         UriBuilder uriBuilder = getApiUriBuilder(SUB_PATH_GET_STATION, PARAM_DEVICE_ID, deviceId, //
                 PARAM_FAVORITES, getFavorites);
-        StationDataResponse response = get(uriBuilder, StationDataResponse.class);
-        return response;
+        return get(uriBuilder, StationDataResponse.class);
     }
 
     /**
@@ -78,7 +77,7 @@ public class WeatherApi extends RestManager {
                 return station;
             }
         }
-        throw new NetatmoException("Unexpected answer searching device '%s' : not found.", deviceId);
+        throw new NetatmoException("Unexpected answer searching device '%s': not found.", deviceId);
     }
 
     /**
@@ -99,7 +98,7 @@ public class WeatherApi extends RestManager {
                 return station;
             }
         }
-        throw new NetatmoException("Unexpected answer searching device '%s' : not found.", deviceId);
+        throw new NetatmoException("Unexpected answer searching device '%s': not found.", deviceId);
     }
 
     public Collection<NAMain> getFavoriteAndGuestStationsData() throws NetatmoException {

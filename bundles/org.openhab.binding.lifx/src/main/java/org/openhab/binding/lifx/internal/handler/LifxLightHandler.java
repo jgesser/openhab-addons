@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -42,6 +42,7 @@ import org.openhab.binding.lifx.internal.LifxLightState;
 import org.openhab.binding.lifx.internal.LifxLightStateChanger;
 import org.openhab.binding.lifx.internal.LifxProduct;
 import org.openhab.binding.lifx.internal.LifxProduct.Features;
+import org.openhab.binding.lifx.internal.LifxProduct.TemperatureRange;
 import org.openhab.binding.lifx.internal.dto.Effect;
 import org.openhab.binding.lifx.internal.dto.GetHevCycleRequest;
 import org.openhab.binding.lifx.internal.dto.GetLightInfraredRequest;
@@ -74,6 +75,7 @@ import org.openhab.core.thing.binding.BaseThingHandler;
 import org.openhab.core.types.Command;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
+import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,6 +99,8 @@ public class LifxLightHandler extends BaseThingHandler {
     private static final Duration MAX_STATE_CHANGE_DURATION = Duration.ofSeconds(4);
 
     private final LifxChannelFactory channelFactory;
+    private final LifxStateDescriptionProvider stateDescriptionProvider;
+
     private @NonNullByDefault({}) Features features;
 
     private Duration hevCycleDuration = Duration.ZERO;
@@ -180,11 +184,23 @@ public class LifxLightHandler extends BaseThingHandler {
             HSBK updateColor = nullSafeUpdateColor(powerState, color);
             HSBType hsb = updateColor.getHSB();
 
+            State colorTemperatureState = UnDefType.UNDEF;
+            State colorTemperatureAbsoluteState = UnDefType.UNDEF;
+            TemperatureRange temperatureRange = features.getTemperatureRange();
+            if (temperatureRange.getRange() > 0) {
+                stateDescriptionProvider.setMinMaxKelvin(new ChannelUID(thing.getUID(), CHANNEL_ABS_TEMPERATURE),
+                        temperatureRange.getMinimum(), temperatureRange.getMaximum());
+                colorTemperatureState = kelvinToPercentType(updateColor.getKelvin(), temperatureRange);
+                colorTemperatureAbsoluteState = QuantityType.valueOf(updateColor.getKelvin(), Units.KELVIN);
+            } else {
+                logger.warn("Thing {} invalid color temperature range {} .. {}", thing.getUID(),
+                        temperatureRange.getMinimum(), temperatureRange.getMaximum());
+            }
+
             updateStateIfChanged(CHANNEL_COLOR, hsb);
             updateStateIfChanged(CHANNEL_BRIGHTNESS, hsb.getBrightness());
-            updateStateIfChanged(CHANNEL_TEMPERATURE,
-                    kelvinToPercentType(updateColor.getKelvin(), features.getTemperatureRange()));
-            updateStateIfChanged(CHANNEL_ABS_TEMPERATURE, new QuantityType(updateColor.getKelvin(), Units.KELVIN));
+            updateStateIfChanged(CHANNEL_TEMPERATURE, colorTemperatureState);
+            updateStateIfChanged(CHANNEL_ABS_TEMPERATURE, colorTemperatureAbsoluteState);
 
             updateZoneChannels(powerState, colors);
         }
@@ -249,9 +265,11 @@ public class LifxLightHandler extends BaseThingHandler {
         }
     }
 
-    public LifxLightHandler(Thing thing, LifxChannelFactory channelFactory) {
+    public LifxLightHandler(Thing thing, LifxChannelFactory channelFactory,
+            LifxStateDescriptionProvider stateDescriptionProvider) {
         super(thing);
         this.channelFactory = channelFactory;
+        this.stateDescriptionProvider = stateDescriptionProvider;
     }
 
     @Override
@@ -561,68 +579,67 @@ public class LifxLightHandler extends BaseThingHandler {
         switch (channelUID.getId()) {
             case CHANNEL_ABS_TEMPERATURE:
             case CHANNEL_TEMPERATURE:
-                if (command instanceof DecimalType || (command instanceof QuantityType
-                        && ((QuantityType) command).toInvertibleUnit(Units.KELVIN) != null)) {
+                if (command instanceof DecimalType || (command instanceof QuantityType quantityCommand
+                        && quantityCommand.toInvertibleUnit(Units.KELVIN) != null)) {
                     return () -> handleTemperatureCommand(command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    return () -> handleIncreaseDecreaseTemperatureCommand((IncreaseDecreaseType) command);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    return () -> handleIncreaseDecreaseTemperatureCommand(increaseDecreaseCommand);
                 }
             case CHANNEL_BRIGHTNESS:
-                if (command instanceof PercentType) {
-                    return () -> handlePercentCommand((PercentType) command);
-                } else if (command instanceof OnOffType) {
-                    return () -> handleOnOffCommand((OnOffType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    return () -> handleIncreaseDecreaseCommand((IncreaseDecreaseType) command);
+                if (command instanceof PercentType percentCommand) {
+                    return () -> handlePercentCommand(percentCommand);
+                } else if (command instanceof OnOffType onOffCommand) {
+                    return () -> handleOnOffCommand(onOffCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    return () -> handleIncreaseDecreaseCommand(increaseDecreaseCommand);
                 }
             case CHANNEL_COLOR:
-                if (command instanceof HSBType) {
-                    return () -> handleHSBCommand((HSBType) command);
-                } else if (command instanceof PercentType) {
-                    return () -> handlePercentCommand((PercentType) command);
-                } else if (command instanceof OnOffType) {
-                    return () -> handleOnOffCommand((OnOffType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    return () -> handleIncreaseDecreaseCommand((IncreaseDecreaseType) command);
+                if (command instanceof HSBType hsbCommand) {
+                    return () -> handleHSBCommand(hsbCommand);
+                } else if (command instanceof PercentType percentCommand) {
+                    return () -> handlePercentCommand(percentCommand);
+                } else if (command instanceof OnOffType onOffCommand) {
+                    return () -> handleOnOffCommand(onOffCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    return () -> handleIncreaseDecreaseCommand(increaseDecreaseCommand);
                 }
             case CHANNEL_EFFECT:
-                if (command instanceof StringType && features.hasFeature(TILE_EFFECT)) {
-                    return () -> handleTileEffectCommand((StringType) command);
+                if (command instanceof StringType stringCommand && features.hasFeature(TILE_EFFECT)) {
+                    return () -> handleTileEffectCommand(stringCommand);
                 }
             case CHANNEL_HEV_CYCLE:
-                if (command instanceof OnOffType) {
-                    return () -> handleHevCycleCommand((OnOffType) command);
+                if (command instanceof OnOffType onOffCommand) {
+                    return () -> handleHevCycleCommand(onOffCommand);
                 }
             case CHANNEL_INFRARED:
-                if (command instanceof PercentType) {
-                    return () -> handleInfraredCommand((PercentType) command);
-                } else if (command instanceof IncreaseDecreaseType) {
-                    return () -> handleIncreaseDecreaseInfraredCommand((IncreaseDecreaseType) command);
+                if (command instanceof PercentType percentCommand) {
+                    return () -> handleInfraredCommand(percentCommand);
+                } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                    return () -> handleIncreaseDecreaseInfraredCommand(increaseDecreaseCommand);
                 }
             default:
                 try {
                     if (channelUID.getId().startsWith(CHANNEL_ABS_TEMPERATURE_ZONE)) {
                         int zoneIndex = Integer.parseInt(channelUID.getId().replace(CHANNEL_ABS_TEMPERATURE_ZONE, ""));
-                        if (command instanceof DecimalType || (command instanceof QuantityType
-                                && ((QuantityType) command).toInvertibleUnit(Units.KELVIN) != null)) {
+                        if (command instanceof DecimalType || (command instanceof QuantityType quantityCommand
+                                && quantityCommand.toInvertibleUnit(Units.KELVIN) != null)) {
                             return () -> handleTemperatureCommand(command, zoneIndex);
                         }
                     } else if (channelUID.getId().startsWith(CHANNEL_COLOR_ZONE)) {
                         int zoneIndex = Integer.parseInt(channelUID.getId().replace(CHANNEL_COLOR_ZONE, ""));
-                        if (command instanceof HSBType) {
-                            return () -> handleHSBCommand((HSBType) command, zoneIndex);
-                        } else if (command instanceof PercentType) {
-                            return () -> handlePercentCommand((PercentType) command, zoneIndex);
-                        } else if (command instanceof IncreaseDecreaseType) {
-                            return () -> handleIncreaseDecreaseCommand((IncreaseDecreaseType) command, zoneIndex);
+                        if (command instanceof HSBType hsbCommand) {
+                            return () -> handleHSBCommand(hsbCommand, zoneIndex);
+                        } else if (command instanceof PercentType percentCommand) {
+                            return () -> handlePercentCommand(percentCommand, zoneIndex);
+                        } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                            return () -> handleIncreaseDecreaseCommand(increaseDecreaseCommand, zoneIndex);
                         }
                     } else if (channelUID.getId().startsWith(CHANNEL_TEMPERATURE_ZONE)) {
                         int zoneIndex = Integer.parseInt(channelUID.getId().replace(CHANNEL_TEMPERATURE_ZONE, ""));
-                        if (command instanceof PercentType) {
-                            return () -> handleTemperatureCommand((PercentType) command, zoneIndex);
-                        } else if (command instanceof IncreaseDecreaseType) {
-                            return () -> handleIncreaseDecreaseTemperatureCommand((IncreaseDecreaseType) command,
-                                    zoneIndex);
+                        if (command instanceof PercentType percentCommand) {
+                            return () -> handleTemperatureCommand(percentCommand, zoneIndex);
+                        } else if (command instanceof IncreaseDecreaseType increaseDecreaseCommand) {
+                            return () -> handleIncreaseDecreaseTemperatureCommand(increaseDecreaseCommand, zoneIndex);
                         }
                     }
                 } catch (NumberFormatException e) {

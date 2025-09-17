@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -14,14 +14,14 @@ package org.openhab.binding.ecovacs.internal.handler;
 
 import static org.openhab.binding.ecovacs.internal.EcovacsBindingConstants.*;
 
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -55,6 +55,7 @@ import org.openhab.binding.ecovacs.internal.api.commands.GoChargingCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.PauseCleaningCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.PlaySoundCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.ResumeCleaningCommand;
+import org.openhab.binding.ecovacs.internal.api.commands.SceneCleaningCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.SetContinuousCleaningCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.SetDefaultCleanPassesCommand;
 import org.openhab.binding.ecovacs.internal.api.commands.SetDustbinAutoEmptyCommand;
@@ -80,7 +81,6 @@ import org.openhab.binding.ecovacs.internal.util.StateOptionMapping;
 import org.openhab.core.i18n.ConfigurationException;
 import org.openhab.core.i18n.LocaleProvider;
 import org.openhab.core.i18n.TranslationProvider;
-import org.openhab.core.io.net.http.HttpUtil;
 import org.openhab.core.library.types.DateTimeType;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
@@ -152,7 +152,7 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
 
     @Override
     public Collection<Class<? extends ThingHandlerService>> getServices() {
-        return Collections.singleton(EcovacsVacuumActions.class);
+        return Set.of(EcovacsVacuumActions.class);
     }
 
     @Override
@@ -171,8 +171,8 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
                     device.sendCommand(cmd);
                     return;
                 }
-            } else if (channel.equals(CHANNEL_ID_VOICE_VOLUME) && command instanceof DecimalType) {
-                int volumePercent = ((DecimalType) command).intValue();
+            } else if (channel.equals(CHANNEL_ID_VOICE_VOLUME) && command instanceof DecimalType volume) {
+                int volumePercent = volume.intValue();
                 device.sendCommand(new SetVolumeCommand((volumePercent + 5) / 10));
                 return;
             } else if (channel.equals(CHANNEL_ID_SUCTION_POWER) && command instanceof StringType) {
@@ -191,7 +191,7 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
                 if (command instanceof OnOffType) {
                     device.sendCommand(new SetDustbinAutoEmptyCommand(command == OnOffType.ON));
                     return;
-                } else if (command instanceof StringType && command.toString().equals("trigger")) {
+                } else if (command instanceof StringType && "trigger".equals(command.toString())) {
                     device.sendCommand(new EmptyDustbinCommand());
                     return;
                 }
@@ -201,8 +201,8 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
             } else if (channel.equals(CHANNEL_ID_CONTINUOUS_CLEANING) && command instanceof OnOffType) {
                 device.sendCommand(new SetContinuousCleaningCommand(command == OnOffType.ON));
                 return;
-            } else if (channel.equals(CHANNEL_ID_CLEANING_PASSES) && command instanceof DecimalType) {
-                int passes = ((DecimalType) command).intValue();
+            } else if (channel.equals(CHANNEL_ID_CLEANING_PASSES) && command instanceof DecimalType type) {
+                int passes = type.intValue();
                 device.sendCommand(new SetDefaultCleanPassesCommand(passes));
                 lastDefaultCleaningPasses = passes; // if we get here, the command was executed successfully
                 return;
@@ -321,7 +321,7 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
             }
             return new StringType(def);
         });
-        updateState(CHANNEL_ID_CLEANING_SPOT_DEFINITION, areaDefState.orElse(UnDefType.UNDEF));
+        updateState(CHANNEL_ID_CLEANING_SPOT_DEFINITION, Objects.requireNonNull(areaDefState.orElse(UnDefType.UNDEF)));
         if (newMode == CleanMode.RETURNING) {
             scheduleNextPoll(30);
         } else if (newMode.isIdle()) {
@@ -531,6 +531,7 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
         } catch (ConfigurationException e) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, e.getRawMessage());
         } catch (EcovacsApiException e) {
+            logger.debug("API Exception: {}", e.getMessage(), e);
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
         }
     }
@@ -578,14 +579,13 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
             updateState(CHANNEL_ID_TOTAL_CLEAN_RUNS, new DecimalType(totalStats.cleanRuns));
 
             boolean continuousCleaningEnabled = device.sendCommand(new GetContinuousCleaningCommand());
-            updateState(CHANNEL_ID_CONTINUOUS_CLEANING, continuousCleaningEnabled ? OnOffType.ON : OnOffType.OFF);
+            updateState(CHANNEL_ID_CONTINUOUS_CLEANING, OnOffType.from(continuousCleaningEnabled));
 
             List<CleanLogRecord> cleanLogRecords = device.getCleanLogs();
             if (!cleanLogRecords.isEmpty()) {
                 CleanLogRecord record = cleanLogRecords.get(0);
 
-                updateState(CHANNEL_ID_LAST_CLEAN_START,
-                        new DateTimeType(record.timestamp.toInstant().atZone(ZoneId.systemDefault())));
+                updateState(CHANNEL_ID_LAST_CLEAN_START, new DateTimeType(record.timestamp.toInstant()));
                 updateState(CHANNEL_ID_LAST_CLEAN_DURATION, new QuantityType<>(record.cleaningDuration, Units.SECOND));
                 updateState(CHANNEL_ID_LAST_CLEAN_AREA, new QuantityType<>(record.cleanedArea, SIUnits.SQUARE_METRE));
                 if (device.hasCapability(DeviceCapability.EXTENDED_CLEAN_LOG_RECORD)) {
@@ -594,19 +594,11 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
 
                     if (device.hasCapability(DeviceCapability.MAPPING)
                             && !lastDownloadedCleanMapUrl.equals(record.mapImageUrl)) {
-                        updateState(CHANNEL_ID_LAST_CLEAN_MAP, record.mapImageUrl.flatMap(url -> {
-                            // HttpUtil expects the server to return the correct MIME type, but Ecovacs' server sends
-                            // 'application/octet-stream', so we have to set the correct MIME type by ourselves
-                            @Nullable
-                            RawType mapData = HttpUtil.downloadData(url, null, false, -1);
-                            if (mapData != null) {
-                                mapData = new RawType(mapData.getBytes(), "image/png");
-                                lastDownloadedCleanMapUrl = record.mapImageUrl;
-                            } else {
-                                logger.debug("{}: Downloading cleaning map {} failed", serialNumber, url);
-                            }
-                            return Optional.ofNullable((State) mapData);
-                        }).orElse(UnDefType.NULL));
+                        Optional<State> content = device.downloadCleanMapImage(record).map(bytes -> {
+                            lastDownloadedCleanMapUrl = record.mapImageUrl;
+                            return new RawType(bytes, "image/png");
+                        });
+                        updateState(CHANNEL_ID_LAST_CLEAN_MAP, Objects.requireNonNull(content.orElse(UnDefType.NULL)));
                     }
                 }
             }
@@ -630,11 +622,11 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
 
             if (device.hasCapability(DeviceCapability.AUTO_EMPTY_STATION)) {
                 boolean autoEmptyEnabled = device.sendCommand(new GetDustbinAutoEmptyCommand());
-                updateState(CHANNEL_ID_AUTO_EMPTY, autoEmptyEnabled ? OnOffType.ON : OnOffType.OFF);
+                updateState(CHANNEL_ID_AUTO_EMPTY, OnOffType.from(autoEmptyEnabled));
             }
             if (device.hasCapability(DeviceCapability.TRUE_DETECT_3D)) {
                 boolean trueDetectEnabled = device.sendCommand(new GetTrueDetectCommand());
-                updateState(CHANNEL_ID_TRUE_DETECT_3D, trueDetectEnabled ? OnOffType.ON : OnOffType.OFF);
+                updateState(CHANNEL_ID_TRUE_DETECT_3D, OnOffType.from(trueDetectEnabled));
             }
             if (device.hasCapability(DeviceCapability.DEFAULT_CLEAN_COUNT_SETTING)) {
                 lastDefaultCleaningPasses = device.sendCommand(new GetDefaultCleanPassesCommand());
@@ -683,7 +675,8 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
             // Some devices already report charging state while returning to charging station, make sure to not report
             // charging in that case. The same applies for models with pad washing/drying station, as those states imply
             // the device being charging.
-            if (cleanMode != CleanMode.RETURNING && cleanMode != CleanMode.WASHING && cleanMode != CleanMode.DRYING) {
+            if (cleanMode != CleanMode.RETURNING && cleanMode != CleanMode.WASHING && cleanMode != CleanMode.DRYING
+                    && cleanMode != CleanMode.EMPTYING) {
                 return "charging";
             }
         }
@@ -703,26 +696,20 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
         if (charging) {
             return CMD_CHARGE;
         }
-        switch (cleanMode) {
-            case AUTO:
-                return CMD_AUTO_CLEAN;
-            case SPOT_AREA:
-                return CMD_SPOT_AREA;
-            case PAUSE:
-                return CMD_PAUSE;
-            case STOP:
-                return CMD_STOP;
-            case RETURNING:
-                return CMD_CHARGE;
-            default:
-                break;
-        }
-        return null;
+        return switch (cleanMode) {
+            case AUTO -> CMD_AUTO_CLEAN;
+            case SPOT_AREA -> CMD_SPOT_AREA;
+            case SCENE_CLEAN -> CMD_SCENE_CLEAN;
+            case PAUSE -> CMD_PAUSE;
+            case STOP -> CMD_STOP;
+            case RETURNING -> CMD_CHARGE;
+            default -> null;
+        };
     }
 
     private State stringToState(@Nullable String value) {
         Optional<State> stateOpt = Optional.ofNullable(value).map(v -> StringType.valueOf(v));
-        return stateOpt.orElse(UnDefType.UNDEF);
+        return Objects.requireNonNull(stateOpt.orElse(UnDefType.UNDEF));
     }
 
     private @Nullable AbstractNoResponseCommand determineDeviceCommand(EcovacsDevice device, String command) {
@@ -761,10 +748,11 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
                     }
                 }
                 if (!roomIds.isEmpty()) {
-                    return new SpotAreaCleaningCommand(roomIds, passes);
+                    return new SpotAreaCleaningCommand(roomIds, passes,
+                            device.hasCapability(DeviceCapability.FREE_CLEAN_FOR_SPOT_AREA));
                 }
             } else {
-                logger.info("{}: spotArea command needs to have the form spotArea:<room1>[;<room2>][;<...roomX>][:x2]",
+                logger.warn("{}: spotArea command needs to have the form spotArea:<room1>[;<room2>][;<...roomX>][:x2]",
                         serialNumber);
             }
         }
@@ -778,8 +766,18 @@ public class EcovacsVacuumHandler extends BaseThingHandler implements EcovacsDev
                     return new CustomAreaCleaningCommand(String.join(",", splittedAreaDef), passes);
                 }
             }
-            logger.info("{}: customArea command needs to have the form customArea:<x1>;<y1>;<x2>;<y2>[:x2]",
+            logger.warn("{}: customArea command needs to have the form customArea:<x1>;<y1>;<x2>;<y2>[:x2]",
                     serialNumber);
+        }
+        if (command.startsWith(CMD_SCENE_CLEAN) && device.hasCapability(DeviceCapability.SCENARIO_CLEANING)) {
+            String[] splitted = command.split(":");
+            if (splitted.length == 2) {
+                String scenarioId = splitted[1];
+                // Setting passes > 1 does not seem to have any effect (tested on T30).
+                return new SceneCleaningCommand(scenarioId, 1);
+            }
+            logger.warn("{}: {} command needs to have the form {}:<scenarioId>", serialNumber, CMD_SCENE_CLEAN,
+                    CMD_SCENE_CLEAN);
         }
 
         return null;

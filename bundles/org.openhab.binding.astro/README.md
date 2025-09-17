@@ -94,6 +94,8 @@ This is done by setting `useMeteorologicalSeason` to true in the advanced settin
 
 ### Trigger Channels
 
+Only these can be used in rule triggers as shown below. Note that they have their own offset configurations that are independent from offsets configured on the start or end times of e.g. the `rise` or `set` channels.
+
 - **thing** `sun`
   - **group** `rise, set, noon, night, morningNight, astroDawn, nauticDawn, civilDawn, astroDusk, nauticDusk, civilDusk, eveningNight, daylight`
     - **event** `START, END`
@@ -134,7 +136,6 @@ sunset is 22:10 but `latest` is set to 20:00 so the event/datetime value is move
 e.g `sun#astroDawn earliest=6:00, latest=20:00 forceEvent=true`
 
 astronomic dawn start is null but `earliest` is set to 06:00 so the event/datetime value is set to 06:00.
-
 
 ## Full Example
 
@@ -245,14 +246,14 @@ Example :
 
 ### getElevation(timeStamp)
 
-Retrieves the elevation (QuantityType<Angle>) of the sun at the requested instant.
+Retrieves the elevation (QuantityType\<Angle\>) of the sun at the requested instant.
 Thing method applies to Sun and Moon.
 
 - `timeStamp` (ZonedDateTime) - defaulted to now() if null.
 
 ### getAzimuth(timeStamp)
 
-Retrieves the azimuth (QuantityType<Angle>) of the sun at the requested instant.
+Retrieves the azimuth (QuantityType\<Angle\>) of the sun at the requested instant.
 Thing method applies to Sun and Moon.
 
 - `timeStamp` (ZonedDateTime) - defaulted to now() if null.
@@ -267,7 +268,7 @@ Example :
 
 ### getTotalRadiation(timeStamp)
 
-Retrieves the total radiation (QuantityType<Intensity>) of the sun at the requested instant.
+Retrieves the total radiation (QuantityType\<Intensity\>) of the sun at the requested instant.
 Thing method only applies to Sun thing type.
 
 ```java

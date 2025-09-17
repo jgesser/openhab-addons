@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -54,7 +54,7 @@ public class NetatmoConstants {
             this.minValue = minValue;
             this.maxValue = maxValue;
             this.unit = unit;
-            String[] splitter = Double.valueOf(precision).toString().split("\\.");
+            String[] splitter = Double.toString(precision).split("\\.");
             if (splitter.length > 1) {
                 int dec = Integer.parseInt(splitter[1]);
                 this.scale = dec > 0 ? Integer.toString(dec).length() : 0;
@@ -105,7 +105,7 @@ public class NetatmoConstants {
 
                 channels.put(String.join("-", apiDescriptor, "measurement"),
                         new MeasureChannelDetails(confFragment, String.join(":", NUMBER, dimension),
-                                String.format("%%.%df %s", measureDefinition.scale, UnitUtils.UNIT_PLACEHOLDER)));
+                                "%%.%df %s".formatted(measureDefinition.scale, UnitUtils.UNIT_PLACEHOLDER)));
                 if (canScale) {
                     channels.put(String.join("-", apiDescriptor, GROUP_TIMESTAMP), new MeasureChannelDetails(
                             GROUP_TIMESTAMP, DATETIME, "@text/extensible-channel-type.timestamp.pattern"));
@@ -149,6 +149,7 @@ public class NetatmoConstants {
     public static final String PARAM_EVENT_ID = "event_id";
     public static final String PARAM_SCHEDULE_ID = "schedule_id";
     public static final String PARAM_OFFSET = "offset";
+    public static final String PARAM_SIZE = "size";
     public static final String PARAM_GATEWAY_TYPE = "gateway_types";
     public static final String PARAM_MODE = "mode";
     public static final String PARAM_URL = "url";
@@ -169,7 +170,7 @@ public class NetatmoConstants {
     public static final int THERM_MAX_SETPOINT = 30;
 
     // Token scopes
-    public static enum Scope {
+    public enum Scope {
         @SerializedName("read_station")
         READ_STATION,
         @SerializedName("read_thermostat")
@@ -200,7 +201,24 @@ public class NetatmoConstants {
         ACCESS_DOORBELL,
         @SerializedName("read_carbonmonoxidedetector")
         READ_CARBONMONOXIDEDETECTOR,
-        UNKNOWN;
+        UNKNOWN
+    }
+
+    // Topology Changes
+    public enum TopologyChange {
+        @SerializedName("home_owner_added")
+        HOME_OWNER_ADDED,
+        @SerializedName("device_associated_to_user")
+        DEVICE_ASSOCIATED_TO_USER,
+        @SerializedName("device_associated_to_home")
+        DEVICE_ASSOCIATED_TO_HOME,
+        @SerializedName("device_updated")
+        DEVICE_UPDATED,
+        @SerializedName("device_associated_to_room")
+        DEVICE_ASSOCIATED_TO_ROOM,
+        @SerializedName("room_created")
+        ROOM_CREATED,
+        UNKNOWN
     }
 
     private static final Scope[] SMOKE_SCOPES = { Scope.READ_SMOKEDETECTOR };
@@ -212,14 +230,14 @@ public class NetatmoConstants {
     private static final Scope[] DOORBELL_SCOPES = { Scope.READ_DOORBELL, Scope.WRITE_DOORBELL, Scope.ACCESS_DOORBELL };
     private static final Scope[] PRESENCE_SCOPES = { Scope.READ_PRESENCE, Scope.WRITE_PRESENCE, Scope.ACCESS_PRESENCE };
 
-    public static enum FeatureArea {
+    public enum FeatureArea {
         AIR_CARE(AIR_CARE_SCOPES),
         WEATHER(WEATHER_SCOPES),
         ENERGY(THERMOSTAT_SCOPES),
         SECURITY(WELCOME_SCOPES, PRESENCE_SCOPES, SMOKE_SCOPES, DOORBELL_SCOPES, CARBON_MONOXIDE_SCOPES),
         NONE();
 
-        public static String ALL_SCOPES = EnumSet.allOf(FeatureArea.class).stream().map(fa -> fa.scopes)
+        public static final String ALL_SCOPES = EnumSet.allOf(FeatureArea.class).stream().map(fa -> fa.scopes)
                 .flatMap(Set::stream).map(s -> s.name().toLowerCase()).collect(Collectors.joining(" "));
 
         public final Set<Scope> scopes;
@@ -230,11 +248,11 @@ public class NetatmoConstants {
     }
 
     // Radio signal quality thresholds
-    static final int[] WIFI_SIGNAL_LEVELS = new int[] { 99, 84, 69, 54 }; // Resp : bad, average, good, full
-    static final int[] RADIO_SIGNAL_LEVELS = new int[] { 90, 80, 70, 60 }; // Resp : low, medium, high, full
+    static final int[] WIFI_SIGNAL_LEVELS = new int[] { 99, 84, 69, 54 }; // Resp: bad, average, good, full
+    static final int[] RADIO_SIGNAL_LEVELS = new int[] { 90, 80, 70, 60 }; // Resp: low, medium, high, full
 
     // Thermostat definitions
-    public static enum SetpointMode {
+    public enum SetpointMode {
         @SerializedName("program")
         PROGRAM("program"),
         @SerializedName("away")
@@ -259,7 +277,7 @@ public class NetatmoConstants {
         }
     }
 
-    public static enum ThermostatZoneType {
+    public enum ThermostatZoneType {
         @SerializedName("0")
         DAY("0"),
         @SerializedName("1")
@@ -290,7 +308,7 @@ public class NetatmoConstants {
         OFF,
         @SerializedName("auto")
         AUTO,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum EventCategory {
@@ -300,7 +318,7 @@ public class NetatmoConstants {
         ANIMAL,
         @SerializedName("vehicle")
         VEHICLE,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum TrendDescription {
@@ -310,7 +328,7 @@ public class NetatmoConstants {
         STABLE,
         @SerializedName("down")
         DOWN,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum VideoStatus {
@@ -320,7 +338,7 @@ public class NetatmoConstants {
         AVAILABLE,
         @SerializedName("deleted")
         DELETED,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum SdCardStatus {
@@ -338,7 +356,7 @@ public class NetatmoConstants {
         SD_CARD_INCOMPATIBLE_SPEED,
         @SerializedName("7")
         SD_CARD_INSUFFICIENT_SPACE,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum AlimentationStatus {
@@ -346,7 +364,7 @@ public class NetatmoConstants {
         ALIM_INCORRECT_POWER,
         @SerializedName("2")
         ALIM_CORRECT_POWER,
-        UNKNOWN;
+        UNKNOWN
     }
 
     public enum SirenStatus {
@@ -429,6 +447,29 @@ public class NetatmoConstants {
         @SerializedName("40")
         JSON_GIVEN_HAS_AN_INVALID_ENCODING,
         @SerializedName("41")
-        DEVICE_IS_UNREACHABLE;
+        DEVICE_IS_UNREACHABLE
+    }
+
+    public enum HomeStatusError {
+        @SerializedName("1")
+        UNKNOWN_ERROR("homestatus-unknown-error"),
+        @SerializedName("2")
+        INTERNAL_ERROR("homestatus-internal-error"),
+        @SerializedName("3")
+        PARSER_ERROR("homestatus-parser-error"),
+        @SerializedName("4")
+        COMMAND_UNKNOWN_NODE_MODULE_ERROR("homestatus-command-unknown"),
+        @SerializedName("5")
+        COMMAND_INVALID_PARAMS("homestatus-invalid-params"),
+        @SerializedName("6")
+        UNREACHABLE("device-not-connected"),
+        UNKNOWN("deserialization-unknown");
+
+        // Associated error message that can be found in properties files
+        public final String message;
+
+        HomeStatusError(String message) {
+            this.message = message;
+        }
     }
 }

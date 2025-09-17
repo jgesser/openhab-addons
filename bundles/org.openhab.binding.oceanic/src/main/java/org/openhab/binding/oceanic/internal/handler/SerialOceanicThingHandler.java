@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -17,10 +17,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.TooManyListenersException;
 import java.util.stream.Collectors;
 
-import org.apache.commons.lang3.StringUtils;
+import org.openhab.binding.oceanic.internal.OceanicBindingConstants;
 import org.openhab.binding.oceanic.internal.SerialOceanicBindingConfiguration;
 import org.openhab.binding.oceanic.internal.Throttler;
 import org.openhab.core.io.transport.serial.PortInUseException;
@@ -33,6 +34,7 @@ import org.openhab.core.io.transport.serial.UnsupportedCommOperationException;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +69,6 @@ public class SerialOceanicThingHandler extends OceanicThingHandler implements Se
         SerialOceanicBindingConfiguration config = getConfigAs(SerialOceanicBindingConfiguration.class);
 
         if (serialPort == null && config.port != null) {
-
             SerialPortIdentifier portIdentifier = serialPortManager.getIdentifier(config.port);
 
             if (portIdentifier == null) {
@@ -172,7 +173,7 @@ public class SerialOceanicThingHandler extends OceanicThingHandler implements Se
             }
 
             long timeStamp = System.currentTimeMillis();
-            while (lastLineReceived.equals("")) {
+            while ("".equals(lastLineReceived)) {
                 try {
                     Thread.sleep(50);
                 } catch (InterruptedException e) {
@@ -208,6 +209,7 @@ public class SerialOceanicThingHandler extends OceanicThingHandler implements Se
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss,SSS");
 
         public SerialPortReader(InputStream in) {
+            super(String.format("OH-binding-%s-%s", OceanicBindingConstants.BINDING_ID, "SerialPortReader"));
             this.inputStream = in;
             this.setName("SerialPortReader-" + getThing().getUID());
         }
@@ -273,7 +275,8 @@ public class SerialOceanicThingHandler extends OceanicThingHandler implements Se
                                         logger.trace("The resulting line is '{}'",
                                                 new String(Arrays.copyOf(dataBuffer, index)));
                                     }
-                                    line = StringUtils.chomp(new String(Arrays.copyOf(dataBuffer, index)));
+                                    line = Objects.requireNonNull(
+                                            StringUtils.chomp(new String(Arrays.copyOf(dataBuffer, index))));
                                     line = line.replace(",", ".");
                                     line = line.trim();
                                     index = 0;

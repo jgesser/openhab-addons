@@ -1,5 +1,5 @@
-/**
- * Copyright (c) 2010-2023 Contributors to the openHAB project
+/*
+ * Copyright (c) 2010-2025 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,7 +13,7 @@
 package org.openhab.binding.shelly.internal.manager;
 
 import static org.openhab.binding.shelly.internal.ShellyBindingConstants.*;
-import static org.openhab.binding.shelly.internal.discovery.ShellyThingCreator.*;
+import static org.openhab.binding.shelly.internal.ShellyDevices.*;
 import static org.openhab.binding.shelly.internal.manager.ShellyManagerConstants.*;
 import static org.openhab.binding.shelly.internal.util.ShellyUtils.*;
 import static org.openhab.core.thing.Thing.*;
@@ -254,7 +254,8 @@ public class ShellyManagerPage {
         properties.put(ATTRIBUTE_APR_TRESHOLD,
                 profile.settings.apRoaming != null ? getOption(profile.settings.apRoaming.threshold) : "n/a");
         properties.put(ATTRIBUTE_PWD_PROTECT,
-                profile.auth ? "enabled, user=" + getString(profile.settings.login.username) : "disabled");
+                getBool(profile.device.auth) ? "enabled, user=" + getString(profile.settings.login.username)
+                        : "disabled");
         String tz = getString(profile.settings.timezone);
         properties.put(ATTRIBUTE_TIMEZONE,
                 (tz.isEmpty() ? "n/a" : tz) + ", auto-detect: " + getBool(profile.settings.tzautodetect));
@@ -338,15 +339,13 @@ public class ShellyManagerPage {
         State state = thingHandler.getChannelValue(group, attribute);
         String value = "";
         if (state != UnDefType.NULL) {
-            if (state instanceof DateTimeType) {
-                DateTimeType dt = (DateTimeType) state;
+            if (state instanceof DateTimeType dateTimeState) {
                 switch (attribute) {
                     case ATTRIBUTE_LAST_ALARM:
-                        value = dt.format(null).replace('T', ' ').replace('-', '/');
+                        value = dateTimeState.format(null).replace('T', ' ').replace('-', '/');
                         break;
                     default:
-                        value = getTimestamp(dt);
-                        value = dt.format(null).replace('T', ' ').replace('-', '/');
+                        value = dateTimeState.format(null).replace('T', ' ').replace('-', '/');
                 }
             } else {
                 value = state.toString();
@@ -414,7 +413,7 @@ public class ShellyManagerPage {
             fw = fromJson(gson, entry, FwRepoEntry.class);
 
             // Special case: RGW2 has a split firmware - xxx-white.zip vs. xxx-color.zip
-            if (!mode.isEmpty() && deviceType.equalsIgnoreCase(SHELLYDT_RGBW2)) {
+            if (SHELLYDT_RGBW2.equalsIgnoreCase(deviceType) && !mode.isEmpty()) {
                 // check for spilt firmware
                 String url = substringBefore(fw.url, ".zip") + "-" + mode + ".zip";
                 if (testUrl(url)) {
@@ -457,7 +456,7 @@ public class ShellyManagerPage {
             // no files available for this device type
             logger.info("{}: No firmware files found for device type {}", LOG_PREFIX, deviceType);
             list = new FwArchList();
-            list.versions = new ArrayList<FwArchEntry>();
+            list.versions = new ArrayList<>();
         } else {
             // Create selection list
             json = "{" + json.replace("[{", "\"versions\":[{") + "}"; // make it a named array
@@ -538,7 +537,7 @@ public class ShellyManagerPage {
     }
 
     protected static String getDeviceIp(Map<String, String> properties) {
-        return getString(properties.get("deviceIp"));
+        return getString(properties.get(ATTRIBUTE_DEVICEIP));
     }
 
     protected static String getDeviceName(Map<String, String> properties) {
@@ -559,10 +558,19 @@ public class ShellyManagerPage {
         return option.toString();
     }
 
-    protected static String getDisplayName(Map<String, String> properties) {
+    protected static String getDisplayName(Map<String, String> properties, Thing thing) {
         String name = getString(properties.get(PROPERTY_DEV_NAME));
         if (name.isEmpty()) {
             name = getString(properties.get(PROPERTY_SERVICE_NAME));
+        }
+        if (name.isEmpty()) {
+            name = getString(properties.get(PROPERTY_MAC_ADDRESS));
+        }
+        if (name.isEmpty()) {
+            name = thing.getLabel();
+        }
+        if (name == null || name.isEmpty()) {
+            name = thing.getUID().getId();
         }
         return name;
     }
