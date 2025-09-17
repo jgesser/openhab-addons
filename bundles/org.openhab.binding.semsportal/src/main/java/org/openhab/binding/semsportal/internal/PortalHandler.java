@@ -26,6 +26,7 @@ import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.http.HttpStatus;
 import org.openhab.binding.semsportal.internal.dto.BaseResponse;
 import org.openhab.binding.semsportal.internal.dto.LoginRequest;
 import org.openhab.binding.semsportal.internal.dto.LoginResponse;
@@ -48,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonSyntaxException;
 
 /**
  * The {@link PortalHandler} is responsible for handling commands, which are sent to one of the channels.
@@ -112,11 +114,17 @@ public class PortalHandler extends BaseBridgeHandler {
         String payload = gson.toJson(new LoginRequest(config.username, config.password));
         String response = sendPost(LOGIN_URL, payload);
         if (response == null) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
-                    "Invalid response from SEMS portal");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Invalid response from SEMS portal");
             return false;
         }
-        LoginResponse loginResponse = gson.fromJson(response, LoginResponse.class);
+
+        LoginResponse loginResponse;
+        try {
+            loginResponse = gson.fromJson(response, LoginResponse.class);
+        } catch (JsonSyntaxException e) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Unable to parse response from SEMS portal");
+            return false;
+        }
         if (loginResponse != null && loginResponse.isOk()) {
             logger.debug("Successfuly logged in to SEMS portal");
             if (loginResponse.getToken() != null) {
@@ -140,6 +148,10 @@ public class PortalHandler extends BaseBridgeHandler {
             request.getHeaders().remove(HttpHeader.ACCEPT_ENCODING);
             ContentResponse response = request.send();
             logger.trace("received response: {}", response.getContentAsString());
+            if (!HttpStatus.isSuccess(response.getStatus())) {
+                logger.debug("Received HTTP error {} when posting to url {}", response.getStatus(), url);
+                return null;
+            }
             return response.getContentAsString();
         } catch (Exception e) {
             logger.debug("{} when posting to url {}", e.getClass().getSimpleName(), url, e);
@@ -167,12 +179,22 @@ public class PortalHandler extends BaseBridgeHandler {
         if (response == null) {
             throw new CommunicationException("No response received from portal");
         }
-        BaseResponse semsResponse = gson.fromJson(response, BaseResponse.class);
+        BaseResponse semsResponse;
+        try {
+            semsResponse = gson.fromJson(response, BaseResponse.class);
+        } catch (JsonSyntaxException e) {
+            throw new CommunicationException("Portal reponse not understood", e);
+        }
         if (semsResponse == null) {
             throw new CommunicationException("Portal reponse not understood");
         }
         if (semsResponse.isOk()) {
-            StatusResponse statusResponse = gson.fromJson(response, StatusResponse.class);
+            StatusResponse statusResponse;
+            try {
+                statusResponse = gson.fromJson(response, StatusResponse.class);
+            } catch (JsonSyntaxException e) {
+                throw new CommunicationException("Portal reponse not understood", e);
+            }
             if (statusResponse == null) {
                 throw new CommunicationException("Portal reponse not understood");
             }
