@@ -12,15 +12,7 @@
  */
 package org.openhab.binding.semsportal.internal;
 
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.ALL_CHANNELS;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_CURRENT_OUTPUT;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_LASTUPDATE;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_MONTH_TOTAL;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_OVERALL_TOTAL;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TODAY_INCOME;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TODAY_TOTAL;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CHANNEL_TOTAL_INCOME;
-import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.STATION_UUID;
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.*;
 
 import java.time.LocalDateTime;
 import java.util.concurrent.ScheduledFuture;

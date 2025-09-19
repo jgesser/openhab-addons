@@ -19,6 +19,7 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
  * a response that was not expected.
  *
  * @author Iwan Bron - Initial contribution
+ *
  */
 @NonNullByDefault
 public class CommunicationException extends Exception {
