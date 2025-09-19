@@ -244,16 +244,6 @@ public class LGThinQFridgeHandler extends LGThinQAbstractDeviceHandler<FridgeCap
     }
 
     @Override
-    public String getDeviceAlias() {
-        return emptyIfNull(getThing().getProperties().get(PROP_INFO_DEVICE_ALIAS));
-    }
-
-    @Override
-    public String getDeviceUriJsonConfig() {
-        return emptyIfNull(getThing().getProperties().get(PROP_INFO_MODEL_URL_INFO));
-    }
-
-    @Override
     public void onDeviceRemoved() {
     }
 

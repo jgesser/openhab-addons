@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 @NonNullByDefault
 public class LGThinqCanonicalModelUtil {
-    public static ObjectMapper mapper = new ObjectMapper();
+    public static final ObjectMapper mapper = new ObjectMapper();
 
     /**
      * Get structured result from the LG Authentication Gateway
