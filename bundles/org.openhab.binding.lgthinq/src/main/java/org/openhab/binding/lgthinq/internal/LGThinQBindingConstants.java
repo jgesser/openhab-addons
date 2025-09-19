@@ -36,8 +36,8 @@ public class LGThinQBindingConstants extends LGServicesConstants {
     // =============== Thing Configuration Constants ===========
     public static final String CFG_POLLING_PERIOD_POWER_ON_SEC = "pollingPeriodPowerOnSeconds";
     public static final String CFG_POLLING_PERIOD_POWER_OFF_SEC = "pollingPeriodPowerOffSeconds";
-    public static final String CFG_POLLING_EXTRA_INFO_PERIOD_SEC = "pollingExtraInfoPeriodSeconds";
-    public static final String CFG_POLLING_EXTRA_INFO_ON_POWER_OFF = "pollExtraInfoOnPowerOff";
+    public static final String CFG_POLLING_EXTRA_INFO_PERIOD_POWER_ON_SEC = "pollingExtraInfoPeriodPowerOnSeconds";
+    public static final String CFG_POLLING_EXTRA_INFO_PERIOD_POWER_OFF_SEC = "pollingExtraInfoPeriodPowerOffSeconds";
     // =============== Thing Type IDs ==================
     public static final ThingTypeUID THING_TYPE_BRIDGE = new ThingTypeUID(BINDING_ID, "cloud-account");
     public static final ThingTypeUID THING_TYPE_AIR_CONDITIONER = new ThingTypeUID(BINDING_ID,

@@ -204,17 +204,18 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
         // It's not recommended to polling for resources in LG API short intervals to do not enter in BlackList
         if (configPollingInterval == 0) {
             logger.debug("LG's discovery polling disabled");
-            return;
         } else if (configPollingInterval < 300) {
             configPollingInterval = 300;
             logger.warn("Wrong configuration value for polling interval. Using default value: {}s",
                     configPollingInterval);
         }
         pollingInterval = configPollingInterval;
-        // submit instantlly and schedule for the next polling interval.
+        // submit instantlly and schedule for the next polling interval if polling enabled.
         runDiscovery();
-        this.devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, 2, pollingInterval,
-                TimeUnit.SECONDS);
+        if (pollingInterval > 0) { 
+            this.devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, 2, pollingInterval,
+                    TimeUnit.SECONDS);
+        }
     }
 
     public void runDiscovery() {
