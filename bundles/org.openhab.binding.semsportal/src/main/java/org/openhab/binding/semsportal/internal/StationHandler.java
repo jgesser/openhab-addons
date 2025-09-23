@@ -133,7 +133,8 @@ public class StationHandler extends BaseThingHandler {
         super.bridgeStatusChanged(bridgeStatusInfo);
         if (bridgeStatusInfo.getStatus() == ThingStatus.ONLINE) {
             startTasks();
-        } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE) {
+        } else if (bridgeStatusInfo.getStatus() == ThingStatus.OFFLINE 
+                && bridgeStatusInfo.getStatusDetail() != ThingStatusDetail.COMMUNICATION_ERROR) {
             stopTasks();
         }
     }
