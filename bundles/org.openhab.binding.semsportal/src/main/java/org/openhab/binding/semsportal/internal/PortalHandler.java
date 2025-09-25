@@ -134,6 +134,8 @@ public class PortalHandler extends BaseBridgeHandler {
             updateStatus(ThingStatus.ONLINE);
             return true;
         }
+        logger.debug("Unable to login to SEMS portal. Response code {} message {}", loginResponse.getCode(),
+                loginResponse.getMsg());
         updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
         return false;
     }
