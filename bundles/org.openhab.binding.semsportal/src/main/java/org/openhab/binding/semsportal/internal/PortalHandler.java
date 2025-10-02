@@ -79,6 +79,7 @@ public class PortalHandler extends BaseBridgeHandler {
     // configuration as provided by the openhab framework: initialize with defaults to prevent compiler check errors
     private SEMSPortalConfiguration config = new SEMSPortalConfiguration();
     private boolean loggedIn;
+    private boolean validCredentials;
     private SEMSToken sessionToken = SESSIONLESS_TOKEN;// gets the default, it is needed for the login
     private @Nullable StationStatus currentStatus;
 
@@ -98,6 +99,7 @@ public class PortalHandler extends BaseBridgeHandler {
     public void initialize() {
         config = getConfigAs(SEMSPortalConfiguration.class);
         updateStatus(ThingStatus.UNKNOWN);
+        validCredentials = false;
 
         scheduler.execute(() -> {
             try {
@@ -131,12 +133,17 @@ public class PortalHandler extends BaseBridgeHandler {
                 sessionToken = loginResponse.getToken();
             }
             loggedIn = true;
+            validCredentials = true;
             updateStatus(ThingStatus.ONLINE);
             return true;
         }
         logger.debug("Unable to login to SEMS portal. Response code {} message {}", loginResponse.getCode(),
                 loginResponse.getMsg());
-        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
+        if (validCredentials) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Unable to login to SEMS portal");
+        } else {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
+        }
         return false;
     }
 
