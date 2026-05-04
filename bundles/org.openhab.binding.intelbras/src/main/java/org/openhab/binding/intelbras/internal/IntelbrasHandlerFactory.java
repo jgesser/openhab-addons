@@ -28,6 +28,7 @@ import org.openhab.core.thing.binding.ThingHandler;
 import org.openhab.core.thing.binding.ThingHandlerFactory;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
 
 /**
@@ -58,7 +59,7 @@ public class IntelbrasHandlerFactory extends BaseThingHandlerFactory {
         ThingTypeUID thingTypeUID = thing.getThingTypeUID();
 
         if (THING_TYPE_DVR.equals(thingTypeUID)) {
-            return new IntelbrasDVRHandler((Bridge) thing, httpClientFactory.getCommonHttpClient());
+            return new IntelbrasDVRHandler((Bridge) thing, httpClientFactory);
         }
         if (THING_TYPE_CHANNEL.equals(thingTypeUID)) {
             return new IntelbrasChannelHandler(thing);

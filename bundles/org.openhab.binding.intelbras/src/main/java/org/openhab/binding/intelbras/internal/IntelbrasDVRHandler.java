@@ -30,12 +30,11 @@ import java.util.stream.Stream;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
-import org.eclipse.jetty.client.api.Authentication;
-import org.eclipse.jetty.client.api.AuthenticationStore;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.util.BasicAuthentication;
-import org.eclipse.jetty.client.util.DigestAuthentication;
 import org.eclipse.jetty.http.HttpStatus;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.StringType;
 import org.openhab.core.thing.Bridge;
@@ -73,13 +72,16 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
     @Nullable
     private ScheduledFuture<?> refreshTask;
 
+    private final HttpClientFactory httpClientFactory;
     private HttpClient httpClient;
 
     private IntelbrasDVRConfig config = new IntelbrasDVRConfig();
 
-    public IntelbrasDVRHandler(Bridge bridge, HttpClient httpClient) {
+    public IntelbrasDVRHandler(Bridge bridge, HttpClientFactory httpClientFactory) {
         super(bridge);
-        this.httpClient = httpClient;
+        this.httpClientFactory = httpClientFactory;
+        this.httpClient = httpClientFactory.createHttpClient(bridge.getUID().getAsString().replace(":", "-"),
+                new SslContextFactory.Client(true));
     }
 
     @Override
@@ -107,28 +109,18 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
         }
 
         try {
-            AuthenticationStore authStore = httpClient.getAuthenticationStore();
-            URI uri = new URI(config.baseURL);
-            switch (config.authMode) {
-                case BASIC:
-                    authStore.addAuthentication(
-                            new BasicAuthentication(uri, Authentication.ANY_REALM, config.username, config.password));
-                    logger.debug("Basic Authentication configured for thing '{}'", thing.getUID());
-                    break;
-                case DIGEST:
-                    authStore.addAuthentication(
-                            new DigestAuthentication(uri, Authentication.ANY_REALM, config.username, config.password));
-                    logger.debug("Digest Authentication configured for thing '{}'", thing.getUID());
-                    break;
-                default:
-                    updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                            "Unknown authentication method!");
-                    return;
-            }
-        } catch (URISyntaxException e) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                    "failed to create authentication: baseUrl is invalid");
+            httpClient.start();
+        } catch (Exception e) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Failed to start HTTP client");
+            return;
         }
+
+        if (config.authMode != IntelbrasAuthMode.BASIC && config.authMode != IntelbrasAuthMode.DIGEST) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Unknown authentication method!");
+            return;
+        }
+        logger.debug("Authentication mode '{}' configured for thing '{}'", config.authMode, thing.getUID());
 
         scheduler.execute(() -> {
             try {
@@ -137,8 +129,14 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
 
                 if (config.refreshInterval > 0) {
                     refreshTask = scheduler.scheduleWithFixedDelay(() -> {
-                        refreshAll();
-                        updateStatus(ThingStatus.ONLINE);
+                        try {
+                            refreshAll();
+                            updateStatus(ThingStatus.ONLINE);
+                        } catch (Exception e) {
+                            logger.error("Error refreshing DVR '{}': {}", thing.getUID(), e.getMessage());
+                            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                                    "Communication error: " + e.getMessage());
+                        }
                     }, config.refreshInterval, config.refreshInterval, TimeUnit.SECONDS);
                 }
 
@@ -155,6 +153,11 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
     public void dispose() {
         if (refreshTask != null) {
             refreshTask.cancel(false);
+        }
+        try {
+            httpClient.stop();
+        } catch (Exception e) {
+            logger.debug("Error stopping HTTP client for thing '{}'", thing.getUID(), e);
         }
     }
 
@@ -174,34 +177,29 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
 
     private void refreshStates(String channelName, String mapKey, Supplier<ContentResponse> responseSupplier,
             Function<String, State> getState) {
-        try {
-            String response = responseSupplier.get().getContentAsString();
-            Map<String, String> map = Stream.of(response.split("\n"))
-                    .map(s -> s.trim())
-                    .map(s -> s.split("="))
-                    .filter(s -> s.length == 2)
-                    .collect(Collectors.toMap(s -> s[0], s -> s[1]));
+        String response = responseSupplier.get().getContentAsString();
+        Map<String, String> map = Stream.of(response.split("\n"))
+                .map(s -> s.trim())
+                .map(s -> s.split("="))
+                .filter(s -> s.length == 2)
+                .collect(Collectors.toMap(s -> s[0], s -> s[1]));
 
-            for (Thing thing : getThing().getThings()) {
-                Channel channel = thing.getChannel(channelName);
-                if (channel == null) {
-                    logger.debug("Channel '{}' not found in thing '{}'", channelName, thing.getUID());
-                    continue;
-                }
-                IntelbrasChannelHandler handler = (IntelbrasChannelHandler) thing.getHandler();
-                if (handler == null) {
-                    logger.debug("Handler for channel '{}' not found in thing '{}'", channelName, thing.getUID());
-                    continue;
-                }
-                Integer camId = handler.getCameraId();
-                String value = map.get(String.format(mapKey, camId.intValue() - 1));
-                logger.debug("Got value '{}' for channel '{}' and camera ID '{}", value, channel.getUID(), camId);
-                State state = value == null ? UnDefType.NULL : getState.apply(value);
-                updateState(channel.getUID(), state);
+        for (Thing thing : getThing().getThings()) {
+            Channel channel = thing.getChannel(channelName);
+            if (channel == null) {
+                logger.debug("Channel '{}' not found in thing '{}'", channelName, thing.getUID());
+                continue;
             }
-        } catch (Exception e) {
-            logger.error("Error when connecting to DVR", e);
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Unable to update DVR info.");
+            IntelbrasChannelHandler handler = (IntelbrasChannelHandler) thing.getHandler();
+            if (handler == null) {
+                logger.debug("Handler for channel '{}' not found in thing '{}'", channelName, thing.getUID());
+                continue;
+            }
+            Integer camId = handler.getCameraId();
+            String value = map.get(String.format(mapKey, camId.intValue() - 1));
+            logger.debug("Got value '{}' for channel '{}' and camera ID '{}", value, channel.getUID(), camId);
+            State state = value == null ? UnDefType.NULL : getState.apply(value);
+            updateState(channel.getUID(), state);
         }
     }
 
@@ -218,8 +216,31 @@ public class IntelbrasDVRHandler extends BaseBridgeHandler {
         }
         logger.debug("Performing GET request: {}", url);
 
-        ContentResponse response = httpClient.GET(url);
-        logger.debug("Received response from GET: {}, STATUS: {}, BODY: {}", url, response.toString(), response.getContentAsString());
+        // First request — no auth, to receive the server's Digest challenge
+        ContentResponse response = httpClient.newRequest(url).send();
+
+        if (response.getStatus() == HttpStatus.UNAUTHORIZED_401 && config.authMode == IntelbrasAuthMode.DIGEST) {
+            String wwwAuth = response.getHeaders().get("WWW-Authenticate");
+            if (wwwAuth != null) {
+                try {
+                    // Send a fresh request with the computed Digest header.
+                    // A new request is used (rather than a retry on the same connection) because
+                    // these devices send Connection:close on the 401 response.
+                    String authHeader = DigestAuthenticator.buildHeader(wwwAuth, "GET", url, config.username, config.password);
+                    response = httpClient.newRequest(url).header("Authorization", authHeader).send();
+                } catch (Exception e) {
+                    throw new RuntimeException("Digest auth failed for " + url + ": " + e.getMessage(), e);
+                }
+            }
+        } else if (response.getStatus() == HttpStatus.UNAUTHORIZED_401 && config.authMode == IntelbrasAuthMode.BASIC) {
+            // Basic auth devices that require auth but don't preemptively receive the header
+            java.util.Base64.Encoder encoder = java.util.Base64.getEncoder();
+            String credentials = encoder.encodeToString(
+                    (config.username + ":" + config.password).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            response = httpClient.newRequest(url).header("Authorization", "Basic " + credentials).send();
+        }
+
+        logger.debug("Received response from GET: {}, STATUS: {}", url, response.getStatus());
 
         if (!HttpStatus.isSuccess(response.getStatus())) {
             throw new RuntimeException("Non success response from GET: " + url + " : " + response.toString());

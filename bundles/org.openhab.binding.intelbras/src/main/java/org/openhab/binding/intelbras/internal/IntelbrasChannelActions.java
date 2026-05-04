@@ -40,7 +40,8 @@ public class IntelbrasChannelActions implements ThingActions {
         if (actions instanceof IntelbrasChannelActions) {
             return ((IntelbrasChannelActions) actions).getSnapshot().getContentAsBase64();
         } else {
-            throw new IllegalArgumentException("Instance is not an IntelbrasChannelActions class.");
+            throw new IllegalArgumentException("Instance is not an IntelbrasChannelActions class: " +
+                    (actions == null ? "null" : actions.getClass().getName()));
         }
     }
 }
