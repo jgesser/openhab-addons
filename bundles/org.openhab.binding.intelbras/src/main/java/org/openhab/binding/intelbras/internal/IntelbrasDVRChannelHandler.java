@@ -36,22 +36,22 @@ import org.slf4j.LoggerFactory;
  * @author Julio Gesser
  */
 @NonNullByDefault
-public class IntelbrasChannelHandler extends BaseThingHandler {
+public class IntelbrasDVRChannelHandler extends BaseThingHandler implements IntelbrasCamera {
 
-    private final Logger logger = LoggerFactory.getLogger(IntelbrasChannelHandler.class);
+    private final Logger logger = LoggerFactory.getLogger(IntelbrasDVRChannelHandler.class);
 
-    private IntelbrasChannelConfig config = new IntelbrasChannelConfig();
+    private IntelbrasDVRChannelConfig config = new IntelbrasDVRChannelConfig();
 
     @Nullable
     private ScheduledFuture<?> snapshotRefreshTask;
 
-    public IntelbrasChannelHandler(Thing thing) {
+    public IntelbrasDVRChannelHandler(Thing thing) {
         super(thing);
     }
 
     @Override
     public void initialize() {
-        config = getConfigAs(IntelbrasChannelConfig.class);
+        config = getConfigAs(IntelbrasDVRChannelConfig.class);
 
         if (getCameraId() < 1) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,

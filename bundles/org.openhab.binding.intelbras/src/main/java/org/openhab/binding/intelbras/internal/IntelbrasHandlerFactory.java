@@ -12,6 +12,7 @@
  */
 package org.openhab.binding.intelbras.internal;
 
+import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.THING_TYPE_CAM;
 import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.THING_TYPE_CHANNEL;
 import static org.openhab.binding.intelbras.internal.IntelbrasBindingConstants.THING_TYPE_DVR;
 
@@ -40,7 +41,7 @@ import org.osgi.service.component.annotations.Reference;
 @Component(configurationPid = "binding.intelbras", service = ThingHandlerFactory.class)
 public class IntelbrasHandlerFactory extends BaseThingHandlerFactory {
 
-    private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Set.of(THING_TYPE_DVR, THING_TYPE_CHANNEL);
+    private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Set.of(THING_TYPE_DVR, THING_TYPE_CHANNEL, THING_TYPE_CAM);
 
     private HttpClientFactory httpClientFactory;
 
@@ -62,7 +63,10 @@ public class IntelbrasHandlerFactory extends BaseThingHandlerFactory {
             return new IntelbrasDVRHandler((Bridge) thing, httpClientFactory);
         }
         if (THING_TYPE_CHANNEL.equals(thingTypeUID)) {
-            return new IntelbrasChannelHandler(thing);
+            return new IntelbrasDVRChannelHandler(thing);
+        }
+        if (THING_TYPE_CAM.equals(thingTypeUID)) {
+            return new IntelbrasCamHandler(thing, httpClientFactory);
         }
 
         return null;

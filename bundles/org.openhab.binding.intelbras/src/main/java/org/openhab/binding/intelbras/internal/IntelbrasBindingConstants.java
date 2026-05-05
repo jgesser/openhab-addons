@@ -28,6 +28,7 @@ public class IntelbrasBindingConstants {
     // List of all Thing Type UIDs
     public static final ThingTypeUID THING_TYPE_DVR = new ThingTypeUID(BINDING_ID, "dvr");
     public static final ThingTypeUID THING_TYPE_CHANNEL = new ThingTypeUID(BINDING_ID, "channel");
+    public static final ThingTypeUID THING_TYPE_CAM = new ThingTypeUID(BINDING_ID, "cam");
 
     // List of all Channel ids
     public static final String CHANNEL_TITLE = "title";

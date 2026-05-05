@@ -13,11 +13,11 @@
 package org.openhab.binding.intelbras.internal;
 
 /**
- * The {@link IntelbrasChannelConfig} class contains fields mapping thing configuration parameters.
+ * The {@link IntelbrasDVRChannelConfig} class contains fields mapping thing configuration parameters.
  *
  * @author Julio Gesser - Initial contribution
  */
-public class IntelbrasChannelConfig {
+public class IntelbrasDVRChannelConfig {
 
     public Integer id = 0;
     public Integer snapshotRefreshInterval = 0;

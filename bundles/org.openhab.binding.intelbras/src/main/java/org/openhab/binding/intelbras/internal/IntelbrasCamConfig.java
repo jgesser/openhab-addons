@@ -13,15 +13,13 @@
 package org.openhab.binding.intelbras.internal;
 
 /**
- * The {@link IntelbrasDVRConfig} class contains fields mapping thing configuration parameters.
+ * Configuration for a standalone {@code intelbras:cam} Thing.
+ * Extends {@link IntelbrasDVRConfig} (adds connectivity parameters) with the
+ * {@code snapshotRefreshInterval} that only makes sense on per-camera Things.
  *
- * @author Julio Gesser - Initial contribution
+ * @author Julio Gesser
  */
-public class IntelbrasDVRConfig {
+public class IntelbrasCamConfig extends IntelbrasDVRConfig {
 
-    public String ipAddress = "";
-    public String username = "";
-    public String password = "";
-    public IntelbrasAuthMode authMode = IntelbrasAuthMode.DIGEST;
-    public Integer refreshInterval = 60;
+    public Integer snapshotRefreshInterval = 0;
 }

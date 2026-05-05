@@ -19,16 +19,18 @@ import org.openhab.core.thing.binding.ThingHandler;
 public class IntelbrasChannelActions implements ThingActions {
 
     @Nullable
-    private IntelbrasChannelHandler handler;
+    private IntelbrasCamera handler;
 
     @Override
     public void setThingHandler(ThingHandler handler) {
-        this.handler = (IntelbrasChannelHandler) handler;
+        if (handler instanceof IntelbrasCamera) {
+            this.handler = (IntelbrasCamera) handler;
+        }
     }
 
     @Override
     public @Nullable ThingHandler getThingHandler() {
-        return handler;
+        return (ThingHandler) handler;
     }
 
     @RuleAction(label = "snapshot", description = "Takes a snapshot of the channel and returns the image content as a byte array")
