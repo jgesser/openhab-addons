@@ -181,7 +181,7 @@ public class StationHandler extends BaseThingHandler {
     private String getStationUUID() {
         String uuid = getThing().getProperties().get(STATION_UUID);
         if (uuid == null) {
-            Object uuidObj = getThing().getConfiguration().get(STATION_UUID);
+            Object uuidObj = getConfig().get(STATION_UUID);
             if (uuidObj instanceof String stringValue) {
                 uuid = stringValue;
             }
