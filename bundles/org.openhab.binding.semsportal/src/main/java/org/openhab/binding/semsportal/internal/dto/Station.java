@@ -21,9 +21,9 @@ import com.google.gson.annotations.SerializedName;
  *
  */
 public class Station {
-    @SerializedName("powerstation_id")
+    @SerializedName(value = "powerstation_id", alternate = "id")
     private String stationId;
-    @SerializedName("stationname")
+    @SerializedName(value = "stationname", alternate = "pw_name")
     private String name;
     @SerializedName("sn")
     private String serialNumber;
@@ -38,8 +38,8 @@ public class Station {
     private Double monthTotal;
     @SerializedName("etotal")
     private Double overallTotal;
-    @SerializedName("d")
-    private InverterDetails details;
+    @SerializedName("last_refresh_time")
+    private String lastUpdate;
 
     public String getStationId() {
         return stationId;
@@ -81,7 +81,7 @@ public class Station {
         return overallTotal;
     }
 
-    public InverterDetails getDetails() {
-        return details;
+    public String getLastUpdate() {
+        return lastUpdate;
     }
 }

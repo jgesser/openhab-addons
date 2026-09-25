@@ -21,9 +21,8 @@ import java.time.ZonedDateTime;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.openhab.binding.semsportal.internal.dto.BaseResponse;
+import org.openhab.binding.semsportal.internal.dto.InverterPointsResponse;
 import org.openhab.binding.semsportal.internal.dto.LoginResponse;
 import org.openhab.binding.semsportal.internal.dto.StationListResponse;
 import org.openhab.binding.semsportal.internal.dto.StatusResponse;
@@ -37,23 +36,28 @@ import com.google.gson.GsonBuilder;
 @NonNullByDefault
 public class SEMSJsonParserTest {
 
-    @ParameterizedTest
-    @ValueSource(strings = { "success_status.json", "success_status_br.json" })
-    public void testParseSuccessStatusResult(String resourceName) throws Exception {
-        String json = Files.readString(Paths.get("src/test/resources/" + resourceName));
+    @Test
+    public void testParseSuccessStatusResult() throws Exception {
+        String json = Files.readString(Paths.get("src/test/resources/success_status.json"));
         StatusResponse response = getGson().fromJson(json, StatusResponse.class);
+        String invertersJson = Files.readString(Paths.get("src/test/resources/success_inverters.json"));
+        InverterPointsResponse invertersResponse = getGson().fromJson(invertersJson, InverterPointsResponse.class);
         assertNotNull(response, "Expected deserialized StatusResponse");
-        if (response != null) {// response cannot be null, was asserted before, but code check produces a warning
+        assertNotNull(invertersResponse, "Expected deserialized InverterPointsResponse");
+        if (response != null && invertersResponse != null) {// cannot be null, was asserted before, but code check
+                                                            // produces a warning
             assertTrue(response.isOk(), "Successresponse should be OK");
+            assertTrue(invertersResponse.isOk(), "Successresponse should be OK");
             assertNotNull(response.getStatus(), "Expected deserialized StatusResponse.status");
-            assertEquals(381.0, response.getStatus().getCurrentOutput(), "Current Output parsed correctly");
-            assertEquals(0.11, response.getStatus().getDayIncome(), "Day income parsed correctly");
-            assertEquals(0.5, response.getStatus().getDayTotal(), "Day total parsed correctly");
-            assertEquals(ZonedDateTime.of(2021, 2, 6, 11, 22, 48, 0, ZoneId.systemDefault()),
+            response.getStatus().setStations(invertersResponse.getInverters());
+            assertEquals(0.0, response.getStatus().getCurrentOutput(), "Current Output parsed correctly");
+            assertEquals(19.11, response.getStatus().getDayIncome(), "Day income parsed correctly");
+            assertEquals(29.4, response.getStatus().getDayTotal(), "Day total parsed correctly");
+            assertEquals(ZonedDateTime.of(2026, 9, 24, 18, 31, 46, 0, ZoneId.systemDefault()),
                     response.getStatus().getLastUpdate(), "Last update parsed correctly");
-            assertEquals(17.2, response.getStatus().getMonthTotal(), "Month total parsed correctly");
-            assertEquals(7379.0, response.getStatus().getOverallTotal(), "Overall total parsed correctly");
-            assertEquals(823.38, response.getStatus().getTotalIncome(), "Total income parsed correctly");
+            assertEquals(549.9, response.getStatus().getMonthTotal(), "Month total parsed correctly");
+            assertEquals(48275.0, response.getStatus().getOverallTotal(), "Overall total parsed correctly");
+            assertEquals(31378.75, response.getStatus().getTotalIncome(), "Total income parsed correctly");
         }
     }
 

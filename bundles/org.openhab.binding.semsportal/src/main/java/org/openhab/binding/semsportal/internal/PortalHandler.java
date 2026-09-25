@@ -28,6 +28,7 @@ import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.http.HttpStatus;
 import org.openhab.binding.semsportal.internal.dto.BaseResponse;
+import org.openhab.binding.semsportal.internal.dto.InverterPointsResponse;
 import org.openhab.binding.semsportal.internal.dto.LoginRequest;
 import org.openhab.binding.semsportal.internal.dto.LoginResponse;
 import org.openhab.binding.semsportal.internal.dto.SEMSToken;
@@ -66,8 +67,10 @@ public class PortalHandler extends BaseBridgeHandler {
     // url for the login request, to get a valid session token
     private static final String LOGIN_URL = BASE_URL + "api/v2/Common/CrossLogin";
     // url to get the status of a specific power station
-    private static final String STATUS_URL = BASE_URL + "api/v2/PowerStation/GetMonitorDetailByPowerstationId";
-    private static final String LIST_URL = BASE_URL + "api/PowerStationMonitor/QueryPowerStationMonitorForApp";
+    private static final String STATUS_URL = BASE_URL + "api/v3/PowerStation/GetPlantDetailByPowerstationId";
+    // url to get the real time data of the inverters of a specific power station
+    private static final String INVERTERS_URL = BASE_URL + "api/v3/PowerStation/GetInverterAllPoint";
+    private static final String LIST_URL = BASE_URL + "api/v2/HistoryData/QueryPowerStationByHistory";
     // the token holds the credential information for the portal
     private static final String HTTP_HEADER_TOKEN = "Token";
     private static final int REQUEST_TIMEOUT_MS = 10_000;
@@ -207,7 +210,13 @@ public class PortalHandler extends BaseBridgeHandler {
             if (statusResponse == null) {
                 throw new CommunicationException("Portal reponse not understood");
             }
-            currentStatus = statusResponse.getStatus();
+            StationStatus status = statusResponse.getStatus();
+            if (status == null) {
+                // the portal responds OK without data for unknown stations
+                throw new ConfigurationException("No data received from SEMS portal. Please check your station ID");
+            }
+            status.setStations(getInverters(stationUUID));
+            currentStatus = status;
             updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
             return currentStatus;
         } else if (semsResponse.isSessionInvalid()) {
@@ -226,6 +235,23 @@ public class PortalHandler extends BaseBridgeHandler {
             throw new CommunicationException(String.format("Unknown status code received from SEMS portal: %s - %s",
                     semsResponse.getCode(), semsResponse.getMsg()));
         }
+    }
+
+    private List<Station> getInverters(String stationUUID) throws CommunicationException {
+        String response = sendPost(INVERTERS_URL, gson.toJson(new StatusRequest(stationUUID)));
+        if (response == null) {
+            throw new CommunicationException("No response received from portal");
+        }
+        InverterPointsResponse invertersResponse;
+        try {
+            invertersResponse = gson.fromJson(response, InverterPointsResponse.class);
+        } catch (JsonSyntaxException e) {
+            throw new CommunicationException("Portal reponse not understood", e);
+        }
+        if (invertersResponse == null || !invertersResponse.isOk()) {
+            throw new CommunicationException("Unable to retrieve inverter data from SEMS portal");
+        }
+        return invertersResponse.getInverters();
     }
 
     public long getUpdateInterval() {

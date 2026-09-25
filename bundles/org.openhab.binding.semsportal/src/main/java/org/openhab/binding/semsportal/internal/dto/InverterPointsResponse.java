@@ -17,20 +17,20 @@ import java.util.List;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * POJO containing the response to the {@link StationListRequest}
+ * POJO containing the response to the inverters request, with the real time data of each inverter of a station
  *
- * @author Iwan Bron - Initial contribution
+ * @author Julio Vilmar Gesser - Initial contribution
  */
-public class StationListResponse extends BaseResponse {
+public class InverterPointsResponse extends BaseResponse {
 
     @SerializedName("data")
-    private StationList stations;
+    private InverterPoints inverters;
 
-    public List<Station> getStations() {
-        return stations == null || stations.list == null ? List.of() : stations.list;
+    public List<Station> getInverters() {
+        return inverters == null || inverters.inverterPoints == null ? List.of() : inverters.inverterPoints;
     }
 
-    private static class StationList {
-        private List<Station> list;
+    private static class InverterPoints {
+        private List<Station> inverterPoints;
     }
 }

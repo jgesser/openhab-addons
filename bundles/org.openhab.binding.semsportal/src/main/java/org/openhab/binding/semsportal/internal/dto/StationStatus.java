@@ -30,12 +30,17 @@ import com.google.gson.annotations.SerializedName;
  * @author Iwan Bron - Initial contribution
  */
 public class StationStatus {
+    // the portal reports the last update of the inverters in US format, regardless of the date format of the station
+    private static final String LAST_UPDATE_DATE_FORMAT = "MM/dd/yyyy";
+
     @SerializedName("kpi")
     private KeyPerformanceIndicators keyPerformanceIndicators;
-    @SerializedName("inverter")
-    private List<Station> stations;
-    @SerializedName("info")
-    private StationInfo info;
+    // not part of the status response: set from the response of the separate inverters request
+    private List<Station> stations = List.of();
+
+    public void setStations(List<Station> stations) {
+        this.stations = stations;
+    }
 
     public Double getCurrentOutput() {
         return keyPerformanceIndicators.getCurrentOutput();
@@ -69,10 +74,10 @@ public class StationStatus {
         if (stations.isEmpty()) {
             return null;
         }
-        DateTimeFormatter formatter = new DateTimeFormatterBuilder().appendPattern(info.getDateFormat())
+        DateTimeFormatter formatter = new DateTimeFormatterBuilder().appendPattern(LAST_UPDATE_DATE_FORMAT)
                 .appendLiteral(" ").appendPattern(SEMSPortalBindingConstants.TIME_FORMAT).toFormatter()
                 .withZone(ZoneId.systemDefault());
-        Instant instant = formatter.parse(stations.get(0).getDetails().getLastUpdate(), Instant::from);
+        Instant instant = formatter.parse(stations.get(0).getLastUpdate(), Instant::from);
         return ZonedDateTime.ofInstant(instant, ZoneId.systemDefault());
     }
 }
