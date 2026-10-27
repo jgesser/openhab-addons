@@ -22,8 +22,15 @@ import com.google.gson.annotations.SerializedName;
 public class LoginResponse extends BaseResponse {
     @SerializedName("data")
     private SEMSToken token;
+    // regional API of the account (e.g. https://hk.semsportal.com/api/), to be used for all other calls
+    @SerializedName("api")
+    private String api;
 
     public SEMSToken getToken() {
         return token;
+    }
+
+    public String getApi() {
+        return api;
     }
 }

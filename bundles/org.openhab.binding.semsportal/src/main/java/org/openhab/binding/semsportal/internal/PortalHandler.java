@@ -62,15 +62,16 @@ public class PortalHandler extends BaseBridgeHandler {
     private Logger logger = LoggerFactory.getLogger(PortalHandler.class);
     // the settings that are needed when you do not have avalid session token yet
     private static final SEMSToken SESSIONLESS_TOKEN = new SEMSToken("v2.1.0", "ios", "en");
-    // the url of the SEMS portal API
-    private static final String BASE_URL = "https://www.semsportal.com/";
-    // url for the login request, to get a valid session token
-    private static final String LOGIN_URL = BASE_URL + "api/v2/Common/CrossLogin";
-    // url to get the status of a specific power station
-    private static final String STATUS_URL = BASE_URL + "api/v3/PowerStation/GetPlantDetailByPowerstationId";
-    // url to get the real time data of the inverters of a specific power station
-    private static final String INVERTERS_URL = BASE_URL + "api/v3/PowerStation/GetInverterAllPoint";
-    private static final String LIST_URL = BASE_URL + "api/v2/HistoryData/QueryPowerStationByHistory";
+    // the SEMS portal hosts that accept a login, tried in order (www returns 502 since Oct 2026). Any of them answers
+    // with the regional API of the account, the paths below are relative to it
+    private static final List<String> LOGIN_BASE_URLS = List.of("https://www.semsportal.com/api/", "https://eu.semsportal.com/api/", "https://au.semsportal.com/api/", "https://hk.semsportal.com/api/");
+    // path for the login request, to get a valid session token
+    private static final String LOGIN_PATH = "v2/Common/CrossLogin";
+    // path to get the status of a specific power station
+    private static final String STATUS_PATH = "v3/PowerStation/GetPlantDetailByPowerstationId";
+    // path to get the real time data of the inverters of a specific power station
+    private static final String INVERTERS_PATH = "v3/PowerStation/GetInverterAllPoint";
+    private static final String LIST_PATH = "v2/HistoryData/QueryPowerStationByHistory";
     // the token holds the credential information for the portal
     private static final String HTTP_HEADER_TOKEN = "Token";
     private static final int REQUEST_TIMEOUT_MS = 10_000;
@@ -84,6 +85,8 @@ public class PortalHandler extends BaseBridgeHandler {
     private boolean loggedIn;
     private boolean validCredentials;
     private SEMSToken sessionToken = SESSIONLESS_TOKEN;// gets the default, it is needed for the login
+    // the regional API of the account, as returned by the login
+    private @Nullable String apiBaseUrl;
     private @Nullable StationStatus currentStatus;
 
     public PortalHandler(Bridge bridge, HttpClientFactory httpClientFactory) {
@@ -117,7 +120,13 @@ public class PortalHandler extends BaseBridgeHandler {
     private boolean login() {
         loggedIn = false;
         String payload = gson.toJson(new LoginRequest(config.username, config.password));
-        String response = sendPost(LOGIN_URL, payload);
+        String response = null;
+        for (String loginBaseUrl : LOGIN_BASE_URLS) {
+            response = sendPost(loginBaseUrl + LOGIN_PATH, payload);
+            if (response != null) {
+                break;
+            }
+        }
         if (response == null) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Invalid response from SEMS portal");
             return false;
@@ -135,6 +144,7 @@ public class PortalHandler extends BaseBridgeHandler {
             if (loginResponse.getToken() != null) {
                 sessionToken = loginResponse.getToken();
             }
+            apiBaseUrl = loginResponse.getApi();
             loggedIn = true;
             validCredentials = true;
             updateStatus(ThingStatus.ONLINE);
@@ -187,7 +197,7 @@ public class PortalHandler extends BaseBridgeHandler {
                 return null;
             }
         }
-        String response = sendPost(STATUS_URL, gson.toJson(new StatusRequest(stationUUID)));
+        String response = sendPost(apiBaseUrl + STATUS_PATH, gson.toJson(new StatusRequest(stationUUID)));
         if (response == null) {
             throw new CommunicationException("No response received from portal");
         }
@@ -238,7 +248,7 @@ public class PortalHandler extends BaseBridgeHandler {
     }
 
     private List<Station> getInverters(String stationUUID) throws CommunicationException {
-        String response = sendPost(INVERTERS_URL, gson.toJson(new StatusRequest(stationUUID)));
+        String response = sendPost(apiBaseUrl + INVERTERS_PATH, gson.toJson(new StatusRequest(stationUUID)));
         if (response == null) {
             throw new CommunicationException("No response received from portal");
         }
@@ -260,7 +270,7 @@ public class PortalHandler extends BaseBridgeHandler {
 
     public List<Station> getAllStations() {
         String payload = gson.toJson(new StationListRequest());
-        String response = sendPost(LIST_URL, payload);
+        String response = sendPost(apiBaseUrl + LIST_PATH, payload);
         if (response == null) {
             logger.debug("Received empty list stations response from SEMS portal");
             return Collections.emptyList();

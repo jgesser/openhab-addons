@@ -1,8 +1,29 @@
 # SEMS Portal / SEMS+ API – notas de pesquisa
 
 > Documento interno de pesquisa (não faz parte da documentação do binding).
-> Última atualização: **2026-09-25**. Objetivo: não perder o que foi descoberto na migração de setembro/2026
+> Última atualização: **2026-10-26**. Objetivo: não perder o que foi descoberto na migração de setembro/2026
 > e ter um roteiro para reavaliar quando a GoodWe desligar os endpoints legados restantes.
+
+## 0. Incidente 2026-10-26: `www.semsportal.com` responde 502
+
+- `www.semsportal.com` e `us.semsportal.com` respondem `502 Bad Gateway` (nginx) a qualquer requisição.
+- `eu.`, `au.` e `hk.semsportal.com` continuam aceitando o login legado (`v2/Common/CrossLogin`), e qualquer
+  um deles devolve no campo `api` a API regional da conta. Para esta conta veio
+  `https://hk.semsportal.com/api/`; em setembro vinha `https://us.semsportal.com/api/`.
+- As chamadas de dados **têm que ir para o host do campo `api`**. O token emitido pelo `eu` é recusado pelos
+  endpoints de dados do próprio `eu`, com `code: 100002` (sessão expirada). O binding tratava isso como sessão
+  inválida e entrava no ciclo de novo login. Testado com `GetPlantDetailByPowerstationId`,
+  `GetInverterAllPoint` e `QueryPowerStationByHistory`: todos `code: 0` no `hk` e `100002` no `eu`.
+- Correção no `PortalHandler`:
+  - o login tenta `www`, `eu`, `au` e `hk`, nessa ordem, e passa para o próximo host quando não há resposta
+    válida (erro HTTP, rede ou JSON);
+  - um login recusado (ex.: `100005`) para na hora, porque todos os hosts recusam igual. A resposta recusada
+    **também traz `api`**, então o teste de sucesso tem que ser `code == 0`;
+  - o `api` do login fica em `apiBaseUrl`, e status, inversores e lista de estações usam esse host;
+  - a descoberta (`getAllStations`) faz login antes, se ainda não souber o `apiBaseUrl`.
+- O gw2pvo (mesma conta) teve a mesma correção e foi validado em produção no mesmo dia.
+- O issue do openhab-addons sobre o binding (#21786, NPE com `GetMonitorDetailByPowerstationId` vazio) continua
+  aberto e sem resposta. O binding oficial ainda tem os dois problemas: os endpoints mortos e o `www` fixo.
 
 ## 1. Resumo
 
@@ -34,11 +55,12 @@ Body    {"account":"<email>","pwd":"<senha em texto>"}
 - Testado e **não necessário** (tudo funciona sem):
   - token `v3.1` (o `v2.1.0` antigo funciona);
   - `User-Agent` de app iOS (o default do Jetty funciona);
-  - usar a URL regional do campo `api` (o `www` atende todas as chamadas);
+  - usar a URL regional do campo `api` (o `www` atende todas as chamadas) — **deixou de valer em 2026-10-26**,
+    ver seção 0;
   - corpo form-encoded (JSON funciona igual);
   - campos `uuid`/`neutral` no token.
 - O campo `api` sempre existiu (o fixture de 2021 já tinha `https://eu.semsportal.com/api/`).
-  Se um dia o `www` parar de rotear, usar a URL regional é a primeira coisa a tentar.
+  Quando o `www` parou de rotear (2026-10-26), usar a URL regional foi de fato a correção.
 - Nota: a integração do HA usa `v3/Common/CrossLogin` com token `"version":"3.1.1"`; não foi necessário aqui.
 
 ### 2.2 Endpoints mortos (respondem OK, mas vazios)
@@ -125,22 +147,30 @@ Body    {"account":"<email>","pwd":"<senha em texto>"}
 
 ```bash
 TOKEN0='{"version":"v2.1.0","client":"ios","language":"en"}'
-LOGIN=$(curl -s https://www.semsportal.com/api/v2/Common/CrossLogin -H "Token: $TOKEN0" \
+# login em qualquer host que responda (www, eu, au, hk); os dados vão para o host do campo "api"
+LOGIN=$(curl -s https://eu.semsportal.com/api/v2/Common/CrossLogin -H "Token: $TOKEN0" \
   -H 'Content-Type: application/json' -d '{"account":"EMAIL","pwd":"SENHA"}')
 TOKEN=$(echo "$LOGIN" | jq -c .data)
+API=$(echo "$LOGIN" | jq -r .api)
 for p in v3/PowerStation/GetPlantDetailByPowerstationId v3/PowerStation/GetInverterAllPoint; do
-  curl -s "https://www.semsportal.com/api/$p" -H "Token: $TOKEN" -H 'Content-Type: application/json' \
+  curl -s "${API}$p" -H "Token: $TOKEN" -H 'Content-Type: application/json' \
     -d '{"powerStationId":"UUID"}' | jq -c '{code, keys: (.data | keys?)}'
 done
-curl -s https://www.semsportal.com/api/v2/HistoryData/QueryPowerStationByHistory -H "Token: $TOKEN" \
+curl -s "${API}v2/HistoryData/QueryPowerStationByHistory" -H "Token: $TOKEN" \
   -H 'Content-Type: application/json' -d '{}' | jq -c '{code, n: (.data.list | length)}'
 ```
+
+Sinal de que o host caiu: `502` no login (foi assim com o `www` em 26/10). Sinal de host errado: `code 100002`
+nas chamadas de dados logo depois de um login bem-sucedido.
 
 Sinal de que morreu: `code 0` com `data` vazio/`null` para uma estação válida (foi assim em 23/09).
 
 ## 3. API web do SEMS+ (plano B)
 
-**Não testada com nossa conta ainda.** Fonte: código de `TimSoethout/goodwe-sems-home-assistant`
+**Testada com nossa conta em 2026-10-26** pelo cliente SEMS+ de referência do gw2pvo
+(`gw2pvo/docs/sems_plus_api.py.reference`): o login no modo web funciona, com gateway
+`https://us-gateway.semsportal.com/web/sems`, e o status, a energia do dia, a tensão e a localização vieram
+certos. O login SEMS+ simples, sem cabeçalhos de navegador, devolve `code 100004` para esta conta. Fonte: código de `TimSoethout/goodwe-sems-home-assistant`
 (`custom_components/sems/sems_api.py`, versões 11.x) e `timvanderHorst/goodwe-semsplus` (`api.py`).
 As duas implementações são independentes e batem entre si.
 

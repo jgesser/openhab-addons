@@ -80,6 +80,8 @@ public class SEMSJsonParserTest {
         if (response != null) {// response cannot be null, was asserted before, but code check produces a warning
             assertTrue(response.isOk(), "Success response should result in OK");
             assertNotNull(response.getToken(), "Success response should result in token");
+            assertEquals("https://eu.semsportal.com/api/", response.getApi(),
+                    "Success response should give the regional API");
         }
     }
 
