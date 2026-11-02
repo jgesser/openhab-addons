@@ -1,34 +1,21 @@
 {
-  "hasError": false,
-  "code": 0,
-  "msg": "Successful",
+  "code": "00000",
+  "description": "Success",
+  "traceId": "0000000000000000",
   "data": {
-    "record": 1,
-    "list": [
+    "total": 1,
+    "dataList": [
       {
-        "id": "00000000-0000-0000-0000-000000000000",
-        "pw_name": "My Plant",
-        "pw_address": "Street 1, City",
-        "status": 0,
-        "inverters": [
-          {
-            "sn": "00000SIW000A0000",
-            "name": "Inversor 1",
-            "change_num": 0,
-            "change_type": 0,
-            "relation_sn": null,
-            "relation_name": null,
-            "status": 0
-          }
-        ]
+        "id": "00000000-0000-0000-0000-0000000000a1",
+        "name": "Example station",
+        "status": 1,
+        "installedPower": 8.5,
+        "isCollected": true,
+        "isShared": false,
+        "powerStationTypeWeb": 1,
+        "pvInstallP": 8.19,
+        "createTime": "2021-04-15 13:55:41"
       }
     ]
-  },
-  "translationCode": "code_0",
-  "components": {
-    "para": null,
-    "langVer": 179,
-    "timeSpan": 0,
-    "msgSocketAdr": ""
   }
 }

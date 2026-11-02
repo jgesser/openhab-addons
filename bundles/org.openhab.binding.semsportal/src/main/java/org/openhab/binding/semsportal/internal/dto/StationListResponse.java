@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2025 Contributors to the openHAB project
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -22,15 +22,14 @@ import com.google.gson.annotations.SerializedName;
  * @author Iwan Bron - Initial contribution
  */
 public class StationListResponse extends BaseResponse {
-
     @SerializedName("data")
     private StationList stations;
 
     public List<Station> getStations() {
-        return stations == null || stations.list == null ? List.of() : stations.list;
+        return stations == null || stations.dataList == null ? List.of() : stations.dataList;
     }
 
     private static class StationList {
-        private List<Station> list;
+        private List<Station> dataList;
     }
 }

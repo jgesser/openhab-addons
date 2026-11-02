@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2025 Contributors to the openHAB project
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -22,15 +22,8 @@ import com.google.gson.annotations.SerializedName;
 public class LoginResponse extends BaseResponse {
     @SerializedName("data")
     private SEMSToken token;
-    // regional API of the account (e.g. https://hk.semsportal.com/api/), to be used for all other calls
-    @SerializedName("api")
-    private String api;
 
     public SEMSToken getToken() {
         return token;
-    }
-
-    public String getApi() {
-        return api;
     }
 }

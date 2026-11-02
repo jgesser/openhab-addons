@@ -1,8 +1,49 @@
 # SEMS Portal / SEMS+ API – notas de pesquisa
 
 > Documento interno de pesquisa (não faz parte da documentação do binding).
-> Última atualização: **2026-10-26**. Objetivo: não perder o que foi descoberto na migração de setembro/2026
+> Última atualização: **2026-11-01**. Objetivo: não perder o que foi descoberto na migração de setembro/2026
 > e ter um roteiro para reavaliar quando a GoodWe desligar os endpoints legados restantes.
+
+## A. Estado atual (2026-11-01): o binding usa a API do SEMS+
+
+Em 2026-10-28, por volta das 19h, os dados em tempo real da API legada congelaram (`GetInverterAllPoint`
+passou a dizer `status -1`, 0 W e `last_refresh_time` parado), enquanto o SEMS+ mostrava a usina normal. O binding
+mostrava "Station not operational". Por isso ele foi migrado para o SEMS+ (a API legada não é mais usada).
+A migração do gw2pvo está em `gw2pvo/docs/SEMS_PLUS_MIGRATION.md`; o protocolo é o mesmo.
+
+**Protocolo** (login em `semsplus.goodwe.com`, o resto no gateway regional que o login devolve em `data.api`):
+
+- Login: `POST https://semsplus.goodwe.com/web/sems/sems-user/api/v1/auth/cross-login`, corpo
+  `{account, pwd: base64(md5hex(senha)), agreement: 1, isChinese: false, isLocal: false}`. Sem cabeçalhos de
+  navegador (`User-Agent`, `Origin`, `Referer`) o login é recusado com `100004`.
+- Toda chamada leva `token` (JSON de `data` do login) e `X-Signature` =
+  `base64(sha256hex("<ms>@<uid>@<token>") + "@" + <ms>)`; o login assina com token vazio.
+- Sucesso é `code "00000"`. Sessão vencida ou substituída: `C0602` (ou `100002`). Senha errada: `100005`.
+  Estação inexistente ou sem acesso: `100025` (o `all-status` responde OK e vazio).
+- **Uma sessão por tipo de cliente da conta**: um login novo derruba o token anterior do mesmo tipo. O tipo é o
+  `client` do token do login. Aceitos: `semsPlusWeb`, `web`, `ios`, `android` (qualquer outro valor é recusado).
+  O gw2pvo do servidor usa `web`; o binding usa `semsPlusWeb` por padrão (parâmetro `clientType` da bridge).
+  Os logins da API legada e do SEMS+ não se afetam.
+
+**Canais** (nomes e tipos inalterados):
+
+| Canal | Fonte |
+|---|---|
+| `currentOutput` (W) | `GET /sems-plant/api/stations/flow?stationId=` → `pAc` (kW × 1000) |
+| `lastUpdate` | `flow` → `refreshTime` (ISO, hora da usina; lida no fuso do sistema) |
+| `todayTotal`, `monthTotal`, `overallTotal` (kWh) | `GET /sems-plant/api/equipments/<sn>/telecounting?deviceType=INVERTER&pwId=` → `proPvStatsToday`, `proPvStatsMonth`, `proPvStatsTotal`, somados dos inversores |
+| `todayIncome` | `POST /sems-plant/api/stations/production`, `dimension: day` → `profitProStats` |
+| `totalIncome` | idem, `dimension: year`, de `2000-01-01` até hoje (o portal soma qualquer período) |
+| operacional | `GET /sems-plant/api/stations/device/all-status?stationId=` → status de algum inversor em 1 ou 5 |
+| descoberta | `POST /sems-plant/api/portal/stations/page` `{current: 1, size: 100}` → `id`, `name`, `pvInstallP` |
+
+Cuidados: o `production` com só `profitProStats` dá `B0001 system_execution_error`; é preciso pedir também
+`proSystemTotalStats`. As receitas são opcionais (se falharem, os canais ficam `NULL`). Por atualização são
+`3 + 1 por inversor` chamadas, mais as duas de receita.
+
+**Para devolver ao openHAB oficial**: o branch parte do `main` de 2025-09 (5.1.0-SNAPSHOT); o oficial está no
+5.3.0-SNAPSHOT e já usa o novo `updateStatus(ThingStatusDetail, ...)` (PR #21904). É preciso refazer o branch
+sobre o `main` atual. O issue #21786 (NPE com os endpoints mortos) está aberto e sem PR.
 
 ## 0. Incidente 2026-10-26: `www.semsportal.com` responde 502
 

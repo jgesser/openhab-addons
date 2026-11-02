@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2025 Contributors to the openHAB project
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -12,9 +12,19 @@
  */
 package org.openhab.binding.semsportal.internal;
 
+import static org.openhab.binding.semsportal.internal.SEMSPortalBindingConstants.CLIENT_TYPES;
+
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import javax.ws.rs.core.MediaType;
@@ -26,23 +36,28 @@ import org.eclipse.jetty.client.api.ContentResponse;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpHeader;
+import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.http.HttpStatus;
 import org.openhab.binding.semsportal.internal.dto.BaseResponse;
-import org.openhab.binding.semsportal.internal.dto.InverterPointsResponse;
+import org.openhab.binding.semsportal.internal.dto.CountingResponse;
+import org.openhab.binding.semsportal.internal.dto.FlowResponse;
+import org.openhab.binding.semsportal.internal.dto.Inverter;
+import org.openhab.binding.semsportal.internal.dto.InverterStatusResponse;
 import org.openhab.binding.semsportal.internal.dto.LoginRequest;
 import org.openhab.binding.semsportal.internal.dto.LoginResponse;
+import org.openhab.binding.semsportal.internal.dto.ProductionRequest;
+import org.openhab.binding.semsportal.internal.dto.ProductionResponse;
 import org.openhab.binding.semsportal.internal.dto.SEMSToken;
 import org.openhab.binding.semsportal.internal.dto.Station;
 import org.openhab.binding.semsportal.internal.dto.StationListRequest;
 import org.openhab.binding.semsportal.internal.dto.StationListResponse;
 import org.openhab.binding.semsportal.internal.dto.StationStatus;
-import org.openhab.binding.semsportal.internal.dto.StatusRequest;
-import org.openhab.binding.semsportal.internal.dto.StatusResponse;
 import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
+import org.openhab.core.thing.ThingStatusInfo;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.types.Command;
 import org.slf4j.Logger;
@@ -60,21 +75,28 @@ import com.google.gson.JsonSyntaxException;
 @NonNullByDefault
 public class PortalHandler extends BaseBridgeHandler {
     private Logger logger = LoggerFactory.getLogger(PortalHandler.class);
-    // the settings that are needed when you do not have avalid session token yet
-    private static final SEMSToken SESSIONLESS_TOKEN = new SEMSToken("v2.1.0", "ios", "en");
-    // the SEMS portal hosts that accept a login, tried in order (www returns 502 since Oct 2026). Any of them answers
-    // with the regional API of the account, the paths below are relative to it
-    private static final List<String> LOGIN_BASE_URLS = List.of("https://www.semsportal.com/api/", "https://eu.semsportal.com/api/", "https://au.semsportal.com/api/", "https://hk.semsportal.com/api/");
-    // path for the login request, to get a valid session token
-    private static final String LOGIN_PATH = "v2/Common/CrossLogin";
-    // path to get the status of a specific power station
-    private static final String STATUS_PATH = "v3/PowerStation/GetPlantDetailByPowerstationId";
-    // path to get the real time data of the inverters of a specific power station
-    private static final String INVERTERS_PATH = "v3/PowerStation/GetInverterAllPoint";
-    private static final String LIST_PATH = "v2/HistoryData/QueryPowerStationByHistory";
-    // the token holds the credential information for the portal
-    private static final String HTTP_HEADER_TOKEN = "Token";
+    // url for the login request, to get a valid session token
+    private static final String LOGIN_URL = "https://semsplus.goodwe.com/web/sems/sems-user/api/v1/auth/cross-login";
+    // The other requests go to the gateway of the region of the account, which the login response tells. These are the
+    // paths on that gateway: to list the power stations, and to get the output, the inverters, the energy counters of
+    // an inverter, and the income of a power station
+    private static final String LIST_PATH = "/sems-plant/api/portal/stations/page";
+    private static final String FLOW_PATH = "/sems-plant/api/stations/flow";
+    private static final String DEVICES_PATH = "/sems-plant/api/stations/device/all-status";
+    private static final String COUNTING_PATH = "/sems-plant/api/equipments/%s/telecounting";
+    private static final String PRODUCTION_PATH = "/sems-plant/api/stations/production";
+    // the portal only serves requests that look like they come from its web application
+    private static final String ORIGIN = "https://semsplus.goodwe.com";
+    private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+    // the token holds the credential information for the portal, the signature proves that it is used right now
+    private static final String HTTP_HEADER_TOKEN = "token";
+    private static final String HTTP_HEADER_SIGNATURE = "X-Signature";
     private static final int REQUEST_TIMEOUT_MS = 10_000;
+    // the status codes of an inverter that is producing
+    private static final Set<Integer> NORMAL_STATUSES = Set.of(1, 5);
+    private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    // The portal sums the income of any period of the type 'year': this one starts before the first installations
+    private static final String INSTALLATION_START = "2000-01-01 00:00:00";
 
     // used to parse json from / to the SEMS portal API
     private final Gson gson;
@@ -82,12 +104,8 @@ public class PortalHandler extends BaseBridgeHandler {
 
     // configuration as provided by the openhab framework: initialize with defaults to prevent compiler check errors
     private SEMSPortalConfiguration config = new SEMSPortalConfiguration();
-    private boolean loggedIn;
-    private boolean validCredentials;
-    private SEMSToken sessionToken = SESSIONLESS_TOKEN;// gets the default, it is needed for the login
-    // the regional API of the account, as returned by the login
-    private @Nullable String apiBaseUrl;
-    private @Nullable StationStatus currentStatus;
+    // null as long as we are not logged in
+    private volatile @Nullable SEMSToken sessionToken;
 
     public PortalHandler(Bridge bridge, HttpClientFactory httpClientFactory) {
         super(bridge);
@@ -104,8 +122,13 @@ public class PortalHandler extends BaseBridgeHandler {
     @Override
     public void initialize() {
         config = getConfigAs(SEMSPortalConfiguration.class);
+        if (!CLIENT_TYPES.contains(config.clientType)) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                    "Client type must be one of " + String.join(", ", CLIENT_TYPES));
+            return;
+        }
         updateStatus(ThingStatus.UNKNOWN);
-        validCredentials = false;
+        sessionToken = null;
 
         scheduler.execute(() -> {
             try {
@@ -117,18 +140,14 @@ public class PortalHandler extends BaseBridgeHandler {
         });
     }
 
-    private boolean login() {
-        loggedIn = false;
-        String payload = gson.toJson(new LoginRequest(config.username, config.password));
-        String response = null;
-        for (String loginBaseUrl : LOGIN_BASE_URLS) {
-            response = sendPost(loginBaseUrl + LOGIN_PATH, payload);
-            if (response != null) {
-                break;
-            }
-        }
+    private synchronized boolean login() {
+        sessionToken = null;
+        LoginRequest request = new LoginRequest(config.username, SEMSSecurity.hashPassword(config.password));
+        String response = send(HttpMethod.POST, LOGIN_URL, new SEMSToken(config.clientType), Map.of(),
+                gson.toJson(request));
         if (response == null) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Invalid response from SEMS portal");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Invalid response from SEMS portal");
             return false;
         }
 
@@ -136,132 +155,241 @@ public class PortalHandler extends BaseBridgeHandler {
         try {
             loginResponse = gson.fromJson(response, LoginResponse.class);
         } catch (JsonSyntaxException e) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Unable to parse response from SEMS portal");
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Unable to parse response from SEMS portal");
             return false;
         }
-        if (loginResponse != null && loginResponse.isOk()) {
+        if (loginResponse == null) {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Invalid response from SEMS portal");
+            return false;
+        }
+        SEMSToken token = loginResponse.getToken();
+        if (loginResponse.isOk() && token != null && token.getApi() != null) {
             logger.debug("Successfuly logged in to SEMS portal");
-            if (loginResponse.getToken() != null) {
-                sessionToken = loginResponse.getToken();
-            }
-            apiBaseUrl = loginResponse.getApi();
-            loggedIn = true;
-            validCredentials = true;
+            sessionToken = token;
             updateStatus(ThingStatus.ONLINE);
             return true;
         }
         logger.debug("Unable to login to SEMS portal. Response code {} message {}", loginResponse.getCode(),
                 loginResponse.getMsg());
-        if (validCredentials) {
-            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Unable to login to SEMS portal");
-        } else {
+        if (BaseResponse.INVALID.equals(loginResponse.getCode())) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR, "Check username / password");
+        } else {
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
+                    "Unable to login to SEMS portal: " + describe(loginResponse));
         }
         return false;
     }
 
-    private @Nullable String sendPost(String url, String payload) {
+    /**
+     * Sends a request to the portal.
+     *
+     * @param method the HTTP method
+     * @param url the url to send the request to
+     * @param token the session token to identify with
+     * @param params the query parameters
+     * @param payload the body of the request, if it has one
+     * @return the body of the response, null if there was no (successful) response
+     */
+    @Nullable
+    String send(HttpMethod method, String url, SEMSToken token, Map<String, String> params, @Nullable String payload) {
         try {
-            Request request = httpClient.POST(url).timeout(REQUEST_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    .header(HttpHeader.CONTENT_TYPE, MediaType.APPLICATION_JSON)
-                    .header(HTTP_HEADER_TOKEN, gson.toJson(sessionToken))
-                    .content(new StringContentProvider(payload, StandardCharsets.UTF_8.name()),
-                            MediaType.APPLICATION_JSON);
+            Request request = httpClient.newRequest(url).method(method).timeout(REQUEST_TIMEOUT_MS,
+                    TimeUnit.MILLISECONDS);
+            request.header(HttpHeader.USER_AGENT, USER_AGENT).header(HttpHeader.ORIGIN, ORIGIN)
+                    .header(HttpHeader.REFERER, ORIGIN + "/").header(HttpHeader.ACCEPT, MediaType.APPLICATION_JSON)
+                    .header(HTTP_HEADER_TOKEN, gson.toJson(token)).header(HTTP_HEADER_SIGNATURE,
+                            SEMSSecurity.signature(token.getUid(), token.getToken(), System.currentTimeMillis()));
+            params.forEach(request::param);
+            if (payload != null) {
+                request.content(new StringContentProvider(payload, StandardCharsets.UTF_8), MediaType.APPLICATION_JSON);
+            }
             request.getHeaders().remove(HttpHeader.ACCEPT_ENCODING);
             ContentResponse response = request.send();
             logger.trace("received response: {}", response.getContentAsString());
             if (!HttpStatus.isSuccess(response.getStatus())) {
-                logger.debug("Received HTTP error {} when posting to url {}", response.getStatus(), url);
+                logger.debug("Received HTTP error {} when sending to url {}", response.getStatus(), url);
                 return null;
             }
             return response.getContentAsString();
         } catch (Exception e) {
-            logger.debug("{} when posting to url {}", e.getClass().getSimpleName(), url, e);
+            logger.debug("{} when sending to url {}", e.getClass().getSimpleName(), url, e);
         }
         return null;
     }
 
-    public @Nullable StationStatus getStationStatus(String stationUUID) throws CommunicationException, ConfigurationException {
-        return getStationStatus(stationUUID, false);
+    /**
+     * Sends a request to the gateway of the account, and parses the response. If the session is not valid (anymore),
+     * it logs in again and repeats the request once.
+     */
+    private <T extends BaseResponse> T call(Class<T> type, HttpMethod method, String path, Map<String, String> params,
+            @Nullable Object body) throws CommunicationException {
+        SEMSToken token = getSession();
+        T response = request(type, method, token, path, params, body);
+        if (response.isSessionInvalid()) {
+            logger.debug("Session is invalidated. Trying again.");
+            token = renewSession(token);
+            response = request(type, method, token, path, params, body);
+        }
+        return response;
     }
 
-    private @Nullable StationStatus getStationStatus(String stationUUID, boolean isRetry) throws CommunicationException, ConfigurationException {
-        if (!loggedIn) {
-            if (getThing().getStatusInfo().getStatus() == ThingStatus.OFFLINE &&
-                    getThing().getStatusInfo().getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
-                logger.debug("Not logged in because of configuration error. Not updating.");
-                return null;
-            }
-            logger.debug("Not logged in. Attempting new login.");
-            if (!login()) {
-                return null;
-            }
+    private <T extends BaseResponse> T request(Class<T> type, HttpMethod method, SEMSToken token, String path,
+            Map<String, String> params, @Nullable Object body) throws CommunicationException {
+        String gateway = token.getApi();
+        if (gateway == null) {
+            throw new CommunicationException("No gateway received from portal");
         }
-        String response = sendPost(apiBaseUrl + STATUS_PATH, gson.toJson(new StatusRequest(stationUUID)));
+        String response = send(method, gateway + path, token, params, body == null ? null : gson.toJson(body));
         if (response == null) {
             throw new CommunicationException("No response received from portal");
         }
-        BaseResponse semsResponse;
+        @Nullable
+        T parsed;
         try {
-            semsResponse = gson.fromJson(response, BaseResponse.class);
+            parsed = gson.fromJson(response, type);
         } catch (JsonSyntaxException e) {
             throw new CommunicationException("Portal reponse not understood", e);
         }
-        if (semsResponse == null) {
+        if (parsed == null) {
             throw new CommunicationException("Portal reponse not understood");
         }
-        if (semsResponse.isOk()) {
-            StatusResponse statusResponse;
-            try {
-                statusResponse = gson.fromJson(response, StatusResponse.class);
-            } catch (JsonSyntaxException e) {
-                throw new CommunicationException("Portal reponse not understood", e);
-            }
-            if (statusResponse == null) {
-                throw new CommunicationException("Portal reponse not understood");
-            }
-            StationStatus status = statusResponse.getStatus();
-            if (status == null) {
-                // the portal responds OK without data for unknown stations
-                throw new ConfigurationException("No data received from SEMS portal. Please check your station ID");
-            }
-            status.setStations(getInverters(stationUUID));
-            currentStatus = status;
-            updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
-            return currentStatus;
-        } else if (semsResponse.isSessionInvalid()) {
-            loggedIn = false;
-            if (isRetry) {
-                logger.debug("Session is invalidated. Skipping status update until next schedule.");
-                return null;
-            } else {
-                logger.debug("Session is invalidated. Trying again.");
-                return getStationStatus(stationUUID, true);
-            }
-        } else if (semsResponse.isError()) {
-            throw new ConfigurationException(
-                    "ERROR status code received from SEMS portal. Please check your station ID");
-        } else {
-            throw new CommunicationException(String.format("Unknown status code received from SEMS portal: %s - %s",
-                    semsResponse.getCode(), semsResponse.getMsg()));
+        return parsed;
+    }
+
+    private synchronized SEMSToken getSession() throws CommunicationException {
+        SEMSToken token = sessionToken;
+        if (token == null && login()) {
+            token = sessionToken;
+        }
+        if (token == null) {
+            throw new CommunicationException("Unable to login to SEMS portal");
+        }
+        return token;
+    }
+
+    /**
+     * Logs in again, unless another request already did after it found out that the session token was invalid. A
+     * login makes the previous session token invalid, so renewing it twice would invalidate the first renewal.
+     */
+    private synchronized SEMSToken renewSession(SEMSToken invalidToken) throws CommunicationException {
+        if (sessionToken == invalidToken) {
+            sessionToken = null;
+        }
+        return getSession();
+    }
+
+    private void checkOk(BaseResponse response) throws CommunicationException {
+        if (!response.isOk()) {
+            throw new CommunicationException("Unknown status code received from SEMS portal: " + describe(response));
         }
     }
 
-    private List<Station> getInverters(String stationUUID) throws CommunicationException {
-        String response = sendPost(apiBaseUrl + INVERTERS_PATH, gson.toJson(new StatusRequest(stationUUID)));
-        if (response == null) {
-            throw new CommunicationException("No response received from portal");
+    private String describe(BaseResponse response) {
+        String message = response.getMsg();
+        return response.getCode() + (message == null || message.isBlank() ? "" : " - " + message);
+    }
+
+    public @Nullable StationStatus getStationStatus(String stationUUID)
+            throws CommunicationException, ConfigurationException {
+        ThingStatusInfo bridgeStatus = getThing().getStatusInfo();
+        if (sessionToken == null && bridgeStatus.getStatus() == ThingStatus.OFFLINE
+                && bridgeStatus.getStatusDetail() == ThingStatusDetail.CONFIGURATION_ERROR) {
+            logger.debug("Not logged in because of configuration error. Not updating.");
+            return null;
         }
-        InverterPointsResponse invertersResponse;
+        Map<String, String> station = Map.of("stationId", stationUUID);
+        FlowResponse flow = call(FlowResponse.class, HttpMethod.GET, FLOW_PATH, station, null);
+        if (flow.isNoAccess()) {
+            throw new ConfigurationException("No access to this power station. Please check your station ID");
+        }
+        checkOk(flow);
+        List<Inverter> inverters = requestInverters(stationUUID);
+
+        Double dayTotal = null;
+        Double monthTotal = null;
+        Double overallTotal = null;
+        boolean operational = false;
+        for (Inverter inverter : inverters) {
+            operational |= NORMAL_STATUSES.contains(inverter.getStatus());
+            CountingResponse counters = call(CountingResponse.class, HttpMethod.GET,
+                    String.format(COUNTING_PATH, inverter.getSerialNumber()),
+                    Map.of("deviceType", "INVERTER", "pwId", stationUUID), null);
+            checkOk(counters);
+            dayTotal = add(dayTotal, counters.getValue(CountingResponse.TODAY));
+            monthTotal = add(monthTotal, counters.getValue(CountingResponse.MONTH));
+            overallTotal = add(overallTotal, counters.getValue(CountingResponse.TOTAL));
+        }
+
+        LocalDate today = LocalDate.now();
+        Double dayIncome = getIncome(stationUUID, "day", today.atStartOfDay().format(PERIOD_FORMAT),
+                today.atTime(23, 59, 59).format(PERIOD_FORMAT));
+        Double totalIncome = getIncome(stationUUID, "year", INSTALLATION_START,
+                today.atTime(23, 59, 59).format(PERIOD_FORMAT));
+
+        Double currentOutput = flow.getCurrentOutput();
+        updateStatus(ThingStatus.ONLINE); // we got a valid response, register as online
+        return new StationStatus(currentOutput == null ? null : currentOutput * 1000, dayTotal, monthTotal,
+                overallTotal, dayIncome, totalIncome, operational, toDateTime(flow.getRefreshTime()));
+    }
+
+    private List<Inverter> requestInverters(String stationUUID) throws CommunicationException {
+        InverterStatusResponse response = call(InverterStatusResponse.class, HttpMethod.GET, DEVICES_PATH,
+                Map.of("stationId", stationUUID), null);
+        checkOk(response);
+        return response.getInverters();
+    }
+
+    /**
+     * @param stationUUID the UUID of the power station
+     * @return the inverters of the power station, empty if they cannot be retrieved
+     */
+    public List<Inverter> getInverters(String stationUUID) {
         try {
-            invertersResponse = gson.fromJson(response, InverterPointsResponse.class);
-        } catch (JsonSyntaxException e) {
-            throw new CommunicationException("Portal reponse not understood", e);
+            return requestInverters(stationUUID);
+        } catch (CommunicationException e) {
+            logger.debug("Unable to retrieve the inverters of the station: {}", e.getMessage());
+            return Collections.emptyList();
         }
-        if (invertersResponse == null || !invertersResponse.isOk()) {
-            throw new CommunicationException("Unable to retrieve inverter data from SEMS portal");
+    }
+
+    private @Nullable Double add(@Nullable Double total, @Nullable Double value) {
+        if (value == null) {
+            return total;
         }
-        return invertersResponse.getInverters();
+        return total == null ? value : total + value;
+    }
+
+    /**
+     * The income is optional: the portal might not know it, for instance if no tariffs are set. That is not a reason
+     * to fail the update.
+     */
+    private @Nullable Double getIncome(String stationUUID, String dimension, String start, String end) {
+        try {
+            ProductionResponse response = call(ProductionResponse.class, HttpMethod.POST, PRODUCTION_PATH, Map.of(),
+                    new ProductionRequest(stationUUID, dimension, start, end));
+            if (response.isOk()) {
+                return response.getIncome();
+            }
+            logger.debug("Unable to retrieve income. Response code {} message {}", response.getCode(),
+                    response.getMsg());
+        } catch (CommunicationException e) {
+            logger.debug("Unable to retrieve income: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private @Nullable ZonedDateTime toDateTime(@Nullable String refreshTime) {
+        if (refreshTime == null) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(refreshTime).atZone(ZoneId.systemDefault());
+        } catch (DateTimeParseException e) {
+            logger.debug("Unable to parse the time of the last update: {}", refreshTime);
+            return null;
+        }
     }
 
     public long getUpdateInterval() {
@@ -269,26 +397,19 @@ public class PortalHandler extends BaseBridgeHandler {
     }
 
     public List<Station> getAllStations() {
-        String payload = gson.toJson(new StationListRequest());
-        String response = sendPost(apiBaseUrl + LIST_PATH, payload);
-        if (response == null) {
-            logger.debug("Received empty list stations response from SEMS portal");
-            return Collections.emptyList();
-        }
-        StationListResponse listResponse = gson.fromJson(response, StationListResponse.class);
-        if (listResponse == null) {
-            logger.debug("Unable to read list stations response from SEMS portal");
-            return Collections.emptyList();
-        }
-        if (listResponse.isOk()) {
-            logger.debug("Received list of {} stations from SEMS portal", listResponse.getStations().size());
-            loggedIn = true;
-            updateStatus(ThingStatus.ONLINE);
-            return listResponse.getStations();
-        } else {
+        try {
+            StationListResponse listResponse = call(StationListResponse.class, HttpMethod.POST, LIST_PATH, Map.of(),
+                    new StationListRequest());
+            if (listResponse.isOk()) {
+                logger.debug("Received list of {} stations from SEMS portal", listResponse.getStations().size());
+                updateStatus(ThingStatus.ONLINE);
+                return listResponse.getStations();
+            }
             logger.debug("Received error response with code {} and message {} from SEMS portal", listResponse.getCode(),
                     listResponse.getMsg());
-            return Collections.emptyList();
+        } catch (CommunicationException e) {
+            logger.debug("Unable to list the stations of the SEMS portal: {}", e.getMessage());
         }
+        return Collections.emptyList();
     }
 }

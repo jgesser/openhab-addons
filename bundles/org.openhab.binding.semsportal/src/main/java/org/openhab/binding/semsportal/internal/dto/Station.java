@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2025 Contributors to the openHAB project
+ * Copyright (c) 2010-2026 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -15,31 +15,17 @@ package org.openhab.binding.semsportal.internal.dto;
 import com.google.gson.annotations.SerializedName;
 
 /**
- * POJO for mapping the portal data response to the {@link StatusRequest} and the {@link StationListRequest}
+ * POJO for mapping a power station in the response to the {@link StationListRequest}
  *
  * @author Iwan Bron - Initial contribution
- *
  */
 public class Station {
-    @SerializedName(value = "powerstation_id", alternate = "id")
+    @SerializedName("id")
     private String stationId;
-    @SerializedName(value = "stationname", alternate = "pw_name")
     private String name;
-    @SerializedName("sn")
-    private String serialNumber;
-    private String type;
+    // installed PV capacity in kWp
+    @SerializedName("pvInstallP")
     private Double capacity;
-    private int status;
-    @SerializedName("out_pac")
-    private Double currentPower;
-    @SerializedName("eday")
-    private Double dayTotal;
-    @SerializedName("emonth")
-    private Double monthTotal;
-    @SerializedName("etotal")
-    private Double overallTotal;
-    @SerializedName("last_refresh_time")
-    private String lastUpdate;
 
     public String getStationId() {
         return stationId;
@@ -49,39 +35,7 @@ public class Station {
         return name;
     }
 
-    public String getSerialNumber() {
-        return serialNumber;
-    }
-
-    public String getType() {
-        return type;
-    }
-
     public Double getCapacity() {
         return capacity;
-    }
-
-    public int getStatus() {
-        return status;
-    }
-
-    public Double getCurrentPower() {
-        return currentPower;
-    }
-
-    public Double getDayTotal() {
-        return dayTotal;
-    }
-
-    public Double getMonthTotal() {
-        return monthTotal;
-    }
-
-    public Double getOverallTotal() {
-        return overallTotal;
-    }
-
-    public String getLastUpdate() {
-        return lastUpdate;
     }
 }
