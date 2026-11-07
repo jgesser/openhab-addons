@@ -209,11 +209,13 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
                     configPollingInterval);
         }
         pollingInterval = configPollingInterval;
-        // submit instantlly and schedule for the next polling interval if polling enabled.
-        runDiscovery();
-        if (pollingInterval > 0) { 
+        // The first run starts shortly after, and it repeats at each polling interval only if polling is enabled.
+        // With polling disabled it still runs once, to log in and load the account devices.
+        if (pollingInterval > 0) {
             this.devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, 2, pollingInterval,
                     TimeUnit.SECONDS);
+        } else {
+            this.devicePollingJob = scheduler.schedule(lgDevicePollingRunnable, 2, TimeUnit.SECONDS);
         }
     }
 
