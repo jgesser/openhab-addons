@@ -403,8 +403,6 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
         return false;
     }
 
-
-
     @Override
     protected Map<String, Object> collectExtraInfoState() throws LGThinqException {
         ExtendedDeviceInfo info = lgThinqACApiClientService.getExtendedDeviceInfo(getBridgeId(), getDeviceId());

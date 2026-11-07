@@ -47,12 +47,12 @@ All the configurations are pre-defined by the discovery process.
 But you can customize to fine-tune the device's state polling process.
 See the table below:
 
-| Parameter                     | Description                                                                                                                                                                                                | Default Value | Supported Devices             |
-|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|-------------------------------|
-| pollingPeriodPowerOffSeconds  | Seconds to wait to the next polling when device is off. Useful to save up i/o and cpu when your device is not working. If you use only this binding to control the device, you can put higher values here. | 10            | All                           |
-| pollingPeriodPowerOnSeconds   | Seconds to wait to the next polling for device state (dashboard channels)                                                                                                                                  | 10            | All                           |
-| pollingExtraInfoPeriodSeconds | Seconds to wait to the next polling for Device's Extra Info (energy consumption, remaining filter, etc)                                                                                                    | 60            | Air Conditioner and Heat Pump |
-| pollExtraInfoOnPowerOff       | If enables, extra info will be fetched in the polling process even when the device is powered off. It's not so common, since extra info are normally changed only when the device is running.              | Off           | Air Conditioner and Heat Pump |
+| Parameter                             | Description                                                                                                                                                                                                | Default Value | Supported Devices             |
+|---------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------|-------------------------------|
+| pollingPeriodPowerOffSeconds          | Seconds to wait to the next polling when device is off. Useful to save up i/o and cpu when your device is not working. If you use only this binding to control the device, you can put higher values here. | 10            | All                           |
+| pollingPeriodPowerOnSeconds           | Seconds to wait to the next polling for device state (dashboard channels)                                                                                                                                  | 10            | All                           |
+| pollingExtraInfoPeriodPowerOnSeconds  | Seconds to wait to the next polling for Device's Extra Info (energy consumption, remaining filter, etc) when the device is on. Use 0 to disable.                                                           | 60            | Air Conditioner and Heat Pump |
+| pollingExtraInfoPeriodPowerOffSeconds | Seconds to wait to the next polling for Device's Extra Info (energy consumption, remaining filter, etc) when the device is off. Use 0 to disable.                                                          | 0             | Air Conditioner and Heat Pump |
 
 ## Channels
 
@@ -77,11 +77,10 @@ Most, but not all, LG ThinQ Air Conditioners support the following channels:
 
 #### More Information Channel
 
-| channel #            | channel                        | type                 | description                                                                  |
-|----------------------|--------------------------------|----------------------|------------------------------------------------------------------------------|
-| extra-info-collector | Enable Extended Info Collector | Switch               | Enable/Disable the extra information collector to update the bellow channels |
-| current-energy       | Current Energy                 | Number:Energy        | The Current Energy consumption in Kwh                                        |
-| remaining-filter     | Remaining Filter               | Number:Dimensionless | Percentage of the remaining filter                                           |
+| channel #        | channel          | type                 | description                        |
+|------------------|------------------|----------------------|------------------------------------|
+| current-energy   | Current Power    | Number:Power         | The current power consumption in W |
+| remaining-filter | Remaining Filter | Number:Dimensionless | Percentage of the remaining filter |
 
 ### Heat Pump
 
@@ -101,10 +100,9 @@ LG ThinQ Heat Pump supports the following channels
 
 #### Heat Pump More Information Channel
 
-| channel #            | channel                        | type                 | description                                                                  |
-|----------------------|--------------------------------|----------------------|------------------------------------------------------------------------------|
-| extra-info-collector | Enable Extended Info Collector | Switch               | Enable/Disable the extra information collector to update the bellow channels |
-| current-energy       | Current Energy                 | Number:Energy        | The Current Energy consumption in Kwh                                        |
+| channel #      | channel       | type         | description                        |
+|----------------|---------------|--------------|------------------------------------|
+| current-energy | Current Power | Number:Power | The current power consumption in W |
 
 ### Washer Machine
 

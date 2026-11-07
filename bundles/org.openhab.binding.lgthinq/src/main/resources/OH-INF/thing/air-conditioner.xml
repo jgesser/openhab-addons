@@ -36,19 +36,21 @@
 				</description>
 				<default>10</default>
 			</parameter>
-			<parameter name="pollingExtraInfoPeriodPowerOnSeconds" type="integer" required="true"
+			<parameter name="pollingExtraInfoPeriodPowerOnSeconds" type="integer" min="0" required="true"
 				groupName="Settings">
 				<label>Polling Extra Info Period when On (0 disabled)</label>
 				<description>Seconds to wait to the next polling for Device's Extra Info (energy consumption,
-					remaining filter, etc) when device is on
+					remaining filter, etc)
+					when device is on
 				</description>
 				<default>60</default>
 			</parameter>
-			<parameter name="pollingExtraInfoPeriodPowerOffSeconds" type="integer" required="true"
+			<parameter name="pollingExtraInfoPeriodPowerOffSeconds" type="integer" min="0" required="true"
 				groupName="Settings">
 				<label>Polling Extra Info Period when Off (0 disabled)</label>
 				<description>Seconds to wait to the next polling for Device's Extra Info (energy consumption,
-					remaining filter, etc) when device is off
+					remaining filter, etc)
+					when device is off
 				</description>
 				<default>0</default>
 			</parameter>

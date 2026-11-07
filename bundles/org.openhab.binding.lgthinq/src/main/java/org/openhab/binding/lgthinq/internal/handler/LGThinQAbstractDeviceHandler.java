@@ -450,12 +450,12 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
         pollingPeriodOffSeconds = props.get(CFG_POLLING_PERIOD_POWER_OFF_SEC) instanceof BigDecimal value
                 ? value.intValue()
                 : pollingPeriodOffSeconds;
-        pollingExtraInfoPeriodOnSeconds = props.get(CFG_POLLING_EXTRA_INFO_PERIOD_POWER_ON_SEC) instanceof BigDecimal value
-                ? value.intValue()
-                : pollingExtraInfoPeriodOnSeconds;
-        pollingExtraInfoPeriodOffSeconds = props.get(CFG_POLLING_EXTRA_INFO_PERIOD_POWER_OFF_SEC) instanceof BigDecimal value
-                ? value.intValue()
-                : pollingExtraInfoPeriodOffSeconds;
+        pollingExtraInfoPeriodOnSeconds = props
+                .get(CFG_POLLING_EXTRA_INFO_PERIOD_POWER_ON_SEC) instanceof BigDecimal value ? value.intValue()
+                        : pollingExtraInfoPeriodOnSeconds;
+        pollingExtraInfoPeriodOffSeconds = props
+                .get(CFG_POLLING_EXTRA_INFO_PERIOD_POWER_OFF_SEC) instanceof BigDecimal value ? value.intValue()
+                        : pollingExtraInfoPeriodOffSeconds;
         // if the periods are the same, I can define currentPeriod for polling right now. If not, I postpone to the nest
         // snapshot update
         if (pollingPeriodOffSeconds == pollingPeriodOnSeconds) {
@@ -576,10 +576,10 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
 
         if (isExtraInfoCollectorSupported()) {
             // restart extra info polling for the new polling Period configuration
-            if (pollingExtraInfoPeriodOnSeconds != pollingExtraInfoPeriodOffSeconds) {
+            if (isThingReconfigured || pollingExtraInfoPeriodOnSeconds != pollingExtraInfoPeriodOffSeconds) {
                 stopExtraInfoCollectorPolling();
             }
-            if (currentPeriodExtraInfoSeconds != 0) {
+            if (currentPeriodExtraInfoSeconds > 0) {
                 startExtraInfoCollectorPolling();
             } else {
                 resetExtraInfoChannels();
