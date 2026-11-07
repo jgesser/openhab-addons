@@ -180,8 +180,7 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
     /**
      * Returns the simple channel UID name, i.e., without group.
      *
-     * @param uid
-     *            Full UID name
+     * @param uid Full UID name
      * @return simple channel UID name, i.e., without group.
      */
     protected String getSimpleChannelUID(String uid) {
@@ -198,8 +197,7 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
     /**
      * Return empty string if null argument is passed
      *
-     * @param value
-     *            value to test
+     * @param value value to test
      * @return empty string if null argument is passed
      */
     protected final String emptyIfNull(@Nullable String value) {
@@ -209,10 +207,8 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
     /**
      * Return the key informed if there is no correpondent value in map for that key.
      *
-     * @param map
-     *            map with key/value
-     * @param key
-     *            key to search for a value into map
+     * @param map map with key/value
+     * @param key key to search for a value into map
      * @return return value related to that key in the map, or the own key if there is no correspondent.
      */
     protected final String keyIfValueNotFound(Map<String, String> map, String key) {
@@ -476,17 +472,6 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
      * @return always false and must be overridden if the implemented handler supports energy collector
      */
     protected boolean isExtraInfoCollectorSupported() {
-        return false;
-    }
-
-    /**
-     * Returns if the energy collector is enabled. The handle that supports energy collection must provide a logic that
-     * defines if the collector is currently enabled. Normally, it uses a Switch Channel to provide a way to the user
-     * turn on/off the collector.
-     *
-     * @return true if the energyCollector must be enabled.
-     */
-    protected boolean isExtraInfoCollectorEnabled() {
         return false;
     }
 
@@ -766,15 +751,13 @@ public abstract class LGThinQAbstractDeviceHandler<@NonNull C extends Capability
     }
 
     /**
-     * Create Dynamic channel. The channel type <b>must be pre-defined in the thing definition (xml) and with the same
-     * name as the channel.</b>
+     * Create Dynamic channel. The channel type <b>must be pre-defined in the thing definition (xml) and with
+     * the same name as the channel.</b>
      *
-     * @param channelNameAndTypeName
-     *            channel name to be created and the same channel type name defined in the channels descriptor
-     * @param channelUuid
-     *            Uid of the channel
-     * @param itemType
-     *            item type (see openhab documentation)
+     * @param channelNameAndTypeName channel name to be created and the same channel type name defined in the channels
+     *            descriptor
+     * @param channelUuid Uid of the channel
+     * @param itemType item type (see openhab documentation)
      * @return return the new channel created
      */
     protected Channel createDynChannel(String channelNameAndTypeName, ChannelUID channelUuid, String itemType) {
